@@ -485,20 +485,38 @@ final class QVHDeviceManager: ObservableObject {
         do {
             let result = try await processRunner.run(qvhPath, arguments: ["devices"], timeout: 10)
 
-            if result.isSuccess {
-                // qvh 可能会在 JSON 前输出 GStreamer 警告，需要提取有效的 JSON 部分
-                let output = result.stdout
+            // 合并 stdout 和 stderr，因为 qvh 可能把 JSON 输出到 stderr
+            let combinedOutput = result.stdout + result.stderr
 
-                // 查找 JSON 开始位置（以 { 开头）
-                guard let jsonStartIndex = output.firstIndex(of: "{") else {
-                    lastError = "qvh 输出中未找到 JSON 数据"
-                    AppLogger.device.error("QVH 输出无效: \(output)")
+            AppLogger.device
+                .debug(
+                    "QVH 命令结果 - exitCode: \(result.exitCode), stdout长度: \(result.stdout.count), stderr长度: \(result.stderr.count)"
+                )
+
+            if result.isSuccess || !combinedOutput.isEmpty {
+                // qvh 可能会在 JSON 前输出 GStreamer 警告，需要提取有效的 JSON 部分
+                // 查找 JSON 开始位置（以 {"devices 开头）
+                guard let jsonStartIndex = combinedOutput.range(of: "{\"devices")?.lowerBound else {
+                    // 如果没有设备，qvh 可能返回空的 devices 数组
+                    if combinedOutput.contains("\"devices\":[]") || combinedOutput.contains("\"devices\": []") {
+                        devices = []
+                        lastError = nil
+                        AppLogger.device.info("QVH 未发现 iOS 设备")
+                        return
+                    }
+                    lastError = "qvh 输出中未找到有效的设备数据"
+                    AppLogger.device.error("QVH 输出无效，无法找到 JSON: stdout=[\(result.stdout)] stderr=[\(result.stderr)]")
                     return
                 }
 
-                // 提取从 { 开始到结尾的 JSON 字符串
-                let jsonString = String(output[jsonStartIndex...])
+                // 提取从 {"devices 开始到结尾的 JSON 字符串
+                var jsonString = String(combinedOutput[jsonStartIndex...])
                     .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // 找到 JSON 结束位置（最后一个 }）
+                if let jsonEndIndex = jsonString.lastIndex(of: "}") {
+                    jsonString = String(jsonString[...jsonEndIndex])
+                }
 
                 guard let jsonData = jsonString.data(using: .utf8) else {
                     lastError = "无法编码 JSON 数据"
@@ -519,6 +537,7 @@ final class QVHDeviceManager: ObservableObject {
                 lastError = nil
             } else {
                 lastError = "qvh 命令执行失败: \(result.stderr)"
+                AppLogger.device.error("QVH 命令失败: exitCode=\(result.exitCode), stderr=\(result.stderr)")
             }
         } catch {
             // 尝试解析错误信息
