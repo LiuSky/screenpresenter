@@ -49,12 +49,19 @@ struct PermissionChecklistView: View {
                             },
                             onRequestPermission: {
                                 // 根据权限类型请求相应权限
-                                if permission.id == "screenRecording" {
+                                switch permission.id {
+                                case "camera":
+                                    Task {
+                                        _ = await appState.permissionChecker.requestCameraPermission()
+                                    }
+                                case "screenRecording":
                                     Task {
                                         _ = await appState.permissionChecker.requestScreenRecordingPermission()
                                     }
-                                } else if permission.id == "accessibility" {
+                                case "accessibility":
                                     appState.permissionChecker.requestAccessibilityPermission()
+                                default:
+                                    break
                                 }
                             }
                         )
@@ -114,8 +121,9 @@ struct PermissionChecklistView: View {
     }
 
     var isReadyToContinue: Bool {
-        // 至少需要屏幕录制权限和工具链就绪
-        appState.permissionChecker.screenRecordingStatus == .granted &&
+        // 至少需要摄像头权限、屏幕录制权限和工具链就绪
+        appState.permissionChecker.cameraStatus == .granted &&
+            appState.permissionChecker.screenRecordingStatus == .granted &&
             appState.toolchainManager.isReady
     }
 }

@@ -139,7 +139,9 @@ struct ContentView: View {
                             .background(
                                 splitLayout == layout
                                     ? Color.accentColor
-                                    : Color(NSColor.controlBackgroundColor)
+                                    : (colorScheme == .dark
+                                        ? Color.white.opacity(0.1)
+                                        : Color(NSColor.controlBackgroundColor))
                             )
                             .foregroundStyle(splitLayout == layout ? .white : .primary)
                             .clipShape(
@@ -213,6 +215,20 @@ struct ContentView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color(NSColor.controlBackgroundColor))
+        .gesture(
+            TapGesture(count: 2)
+                .onEnded {
+                    toggleFullScreen()
+                }
+        )
+    }
+
+    // MARK: - 全屏切换
+
+    /// 切换全屏/还原窗口
+    private func toggleFullScreen() {
+        guard let window = NSApplication.shared.windows.first else { return }
+        window.toggleFullScreen(nil)
     }
 
     // MARK: - 预览区域
@@ -243,6 +259,19 @@ struct ContentView: View {
                         x: isHorizontal ? (isSwapped ? -panelWidth / 2 : panelWidth / 2) : 0,
                         y: isHorizontal ? 0 : (isSwapped ? -panelHeight / 2 : panelHeight / 2)
                     )
+
+                // 中间分割线
+                if isHorizontal {
+                    // 左右布局：垂直分割线
+                    Rectangle()
+                        .fill(Color(NSColor.separatorColor))
+                        .frame(width: 1)
+                } else {
+                    // 上下布局：水平分割线
+                    Rectangle()
+                        .fill(Color(NSColor.separatorColor))
+                        .frame(height: 1)
+                }
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: splitLayout)
@@ -297,10 +326,11 @@ struct ContentView: View {
                 VStack(spacing: 20) {
                     // 大设备图标（使用 AppIcon 上的设备 icon）
                     Image(title == "Android" ? "AndroidIcon" : "IOSIcon")
+                        .renderingMode(.template)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 120)
-                        .opacity(secondaryTextOpacity)
+                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
 
                     // 设备类型名称
                     Text(title)
