@@ -119,10 +119,8 @@ struct PermissionChecklistView: View {
     }
 
     var isReadyToContinue: Bool {
-        // 需要摄像头权限、屏幕录制权限和工具链就绪
-        appState.permissionChecker.cameraStatus == .granted &&
-            appState.permissionChecker.screenRecordingStatus == .granted &&
-            appState.toolchainManager.isReady
+        // 首次启动检查清单，用户随时可以跳过
+        true
     }
 }
 

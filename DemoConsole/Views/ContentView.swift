@@ -53,11 +53,6 @@ struct ContentView: View {
 
             // 中间预览区域
             previewArea
-
-            Divider()
-
-            // 底部状态栏
-            bottomStatusBar
         }
         .background(Color(NSColor.windowBackgroundColor))
         .overlay {
@@ -286,8 +281,6 @@ struct ContentView: View {
     private var androidDevicePanel: some View {
         devicePreviewPanel(
             title: "Android",
-            isConnected: appState.androidConnected,
-            isCapturing: appState.androidCapturing,
             deviceName: appState.androidDeviceName,
             latestFrame: appState.androidLatestFrame,
             deviceSource: appState.androidDeviceSource,
@@ -299,8 +292,6 @@ struct ContentView: View {
     private var iosDevicePanel: some View {
         devicePreviewPanel(
             title: "iPhone",
-            isConnected: appState.iosConnected,
-            isCapturing: appState.iosCapturing,
             deviceName: appState.iosDeviceName,
             latestFrame: appState.iosLatestFrame,
             deviceSource: appState.iosDeviceSource,
@@ -312,8 +303,6 @@ struct ContentView: View {
 
     private func devicePreviewPanel(
         title: String,
-        isConnected: Bool,
-        isCapturing: Bool,
         deviceName: String?,
         latestFrame: CapturedFrame?,
         deviceSource: BaseDeviceSource?,
@@ -323,6 +312,18 @@ struct ContentView: View {
         let textColor = colorScheme == .dark ? Color.white : Color.black
         let secondaryTextOpacity = colorScheme == .dark ? 0.5 : 0.4
         let tertiaryTextOpacity = colorScheme == .dark ? 0.4 : 0.3
+
+        // 根据 deviceSource 状态判断连接和捕获状态
+        let isCapturing = deviceSource?.state == .capturing
+        let isConnected: Bool = {
+            guard let source = deviceSource else { return false }
+            switch source.state {
+            case .idle, .disconnected:
+                return false
+            default:
+                return true
+            }
+        }()
 
         return ZStack {
             // 设备内容区
@@ -338,62 +339,99 @@ struct ContentView: View {
                     .frame(maxWidth: geometry.size.width, maxHeight: geometry.size.height)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                 }
-            } else if isConnected {
-                // 已连接但未捕获：显示连接状态和准备中
-                VStack(spacing: 16) {
-                    if let source = deviceSource {
-                        // 根据状态显示不同内容
-                        switch source.state {
-                        case .connecting:
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("正在连接...")
-                                .font(.headline)
-                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+            } else if let source = deviceSource, isConnected {
+                // 已连接：根据状态显示不同内容
+                VStack(spacing: 20) {
+                    switch source.state {
+                    case .connecting:
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("正在连接...")
+                            .font(.headline)
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
 
-                        case .connected:
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            Text("准备捕获...")
+                    case .connected:
+                        // 设备图标
+                        Image(title == "Android" ? "AndroidIcon" : "IOSIcon")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 80)
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                        // 设备名称
+                        if let name = deviceName {
+                            Text("\(name)")
+                                .font(.title2.bold())
+                                .foregroundStyle(textColor.opacity(0.8))
+                        }
+
+                        // 捕获按钮
+                        Button {
+                            Task {
+                                try? await source.startCapture()
+                            }
+                        } label: {
+                            Label("开始捕获", systemImage: "play.fill")
+                                .font(.headline)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+
+                    case .capturing:
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        if let name = deviceName {
+                            Text("正在捕获 \"\(name)\"...")
                                 .font(.caption)
                                 .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-
-                        case .capturing:
-                            ProgressView()
-                                .scaleEffect(1.2)
+                        } else {
                             Text("等待画面...")
                                 .font(.caption)
                                 .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-
-                        case .paused:
-                            Image(systemName: "pause.circle")
-                                .font(.system(size: 48))
-                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-                            Text("已暂停")
-                                .font(.headline)
-                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-
-                        case let .error(error):
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.orange)
-                            Text(error.localizedDescription)
-                                .font(.caption)
-                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-                                .multilineTextAlignment(.center)
-
-                        default:
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            Text("初始化中...")
-                                .font(.caption)
-                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
                         }
-                    } else {
-                        // 设备已检测到但 DeviceSource 尚未创建
+
+                    case .paused:
+                        Image(systemName: "pause.circle")
+                            .font(.system(size: 48))
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                        Text("已暂停")
+                            .font(.headline)
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                        // 恢复按钮
+                        Button {
+                            Task {
+                                try? await source.startCapture()
+                            }
+                        } label: {
+                            Label("继续捕获", systemImage: "play.fill")
+                        }
+                        .buttonStyle(.bordered)
+
+                    case let .error(error):
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.orange)
+                        Text(error.localizedDescription)
+                            .font(.caption)
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                            .multilineTextAlignment(.center)
+
+                        // 重试按钮
+                        Button {
+                            Task {
+                                try? await source.reconnect()
+                            }
+                        } label: {
+                            Label("重试", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.bordered)
+
+                    default:
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text("正在准备...")
+                        Text("初始化中...")
                             .font(.caption)
                             .foregroundStyle(textColor.opacity(secondaryTextOpacity))
                     }
@@ -429,42 +467,50 @@ struct ContentView: View {
                 }
             }
 
-            // 顶部状态栏（悬浮在内容上方）
+            // 顶部状态栏（仅捕获时悬浮在内容上方）
             VStack {
-                HStack {
-                    if isConnected {
+                if isCapturing, let source = deviceSource {
+                    HStack {
                         // 状态指示灯
                         Circle()
-                            .fill(isCapturing ? Color.green : Color.yellow)
+                            .fill(Color.green)
                             .frame(width: 8, height: 8)
 
-                        // 设备名称
-                        if let name = deviceName {
-                            Text(name)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
+                        Text("捕获中")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.9))
 
                         Spacer()
 
                         // 捕获尺寸信息
-                        if let source = deviceSource, source.captureSize != .zero {
+                        if source.captureSize != .zero {
                             Text("\(Int(source.captureSize.width))×\(Int(source.captureSize.height))")
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.6))
-
-                            if source.frameRate > 0 {
-                                Text("\(Int(source.frameRate)) fps")
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.6))
-                            }
                         }
+
+                        if source.frameRate > 0 {
+                            Text("\(Int(source.frameRate)) fps")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+
+                        // 停止捕获按钮
+                        Button {
+                            Task {
+                                await source.stopCapture()
+                            }
+                        } label: {
+                            Image(systemName: "stop.fill")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white.opacity(0.8))
                     }
-                    Spacer()
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.5))
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(isConnected ? Color.black.opacity(0.5) : Color.clear)
 
                 Spacer()
             }
@@ -481,84 +527,6 @@ struct ContentView: View {
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         let context = CIContext(options: [.useSoftwareRenderer: false])
         return context.createCGImage(ciImage, from: ciImage.extent)
-    }
-
-    // MARK: - 底部状态栏
-
-    private var bottomStatusBar: some View {
-        HStack(spacing: 16) {
-            // 工具链状态
-            HStack(spacing: 12) {
-                // adb 状态
-                HStack(spacing: 6) {
-                    StatusDot(isReady: appState.toolchainManager.adbStatus.isReady)
-                    Text("adb")
-                        .font(.caption)
-                    if appState.toolchainManager.adbStatus.isReady {
-                        Text(appState.toolchainManager.adbVersionDescription)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Divider().frame(height: 12)
-
-                // scrcpy 状态
-                HStack(spacing: 6) {
-                    StatusDot(isReady: appState.toolchainManager.scrcpyStatus.isReady)
-                    Text("scrcpy")
-                        .font(.caption)
-                    if appState.toolchainManager.scrcpyStatus.isReady {
-                        Text(appState.toolchainManager.scrcpyVersionDescription)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Button("安装") {
-                            // TODO: 安装 scrcpy
-                        }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                    }
-                }
-            }
-
-            Spacer()
-
-            // 设备连接状态
-            HStack(spacing: 8) {
-                if appState.androidConnected {
-                    Label("Android 已连接", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-                if appState.iosConnected {
-                    Label("iPhone 已连接", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-                if !appState.androidConnected, !appState.iosConnected {
-                    Text("等待设备连接...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor))
-    }
-}
-
-// MARK: - 状态指示点
-
-struct StatusDot: View {
-    let isReady: Bool
-
-    var body: some View {
-        Circle()
-            .fill(isReady ? Color.green : Color.orange)
-            .frame(width: 8, height: 8)
     }
 }
 

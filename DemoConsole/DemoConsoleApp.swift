@@ -79,9 +79,20 @@ final class AppState: ObservableObject {
 
     // MARK: - 设备连接状态
 
-    /// Android 是否已连接
+    /// Android 是否已连接（设备列表不为空，且设备源处于有效状态）
     var androidConnected: Bool {
-        !androidDeviceProvider.devices.isEmpty
+        guard !androidDeviceProvider.devices.isEmpty else { return false }
+        // 如果设备源存在，检查其状态
+        if let source = androidDeviceSource {
+            switch source.state {
+            case .idle, .disconnected:
+                return false
+            default:
+                return true
+            }
+        }
+        // 设备列表有设备但源未创建，也视为连接中
+        return true
     }
 
     /// Android 设备名称
@@ -89,9 +100,20 @@ final class AppState: ObservableObject {
         androidDeviceProvider.devices.first?.displayName
     }
 
-    /// iOS 是否已连接
+    /// iOS 是否已连接（设备列表不为空，且设备源处于有效状态）
     var iosConnected: Bool {
-        !iosDeviceProvider.devices.isEmpty
+        guard !iosDeviceProvider.devices.isEmpty else { return false }
+        // 如果设备源存在，检查其状态
+        if let source = iosDeviceSource {
+            switch source.state {
+            case .idle, .disconnected:
+                return false
+            default:
+                return true
+            }
+        }
+        // 设备列表有设备但源未创建，也视为连接中
+        return true
     }
 
     /// iOS 设备名称
@@ -138,8 +160,8 @@ final class AppState: ObservableObject {
         // 检查权限
         await permissionChecker.checkAll()
 
-        // 如果首次启动或权限不完整，显示检查清单
-        if !hasCompletedSetup || !permissionChecker.allPermissionsGranted {
+        // 只在首次启动时显示检查清单
+        if !hasCompletedSetup {
             showPermissionChecklist = true
         }
 
@@ -232,7 +254,7 @@ final class AppState: ObservableObject {
 
     // MARK: - iOS 设备管理
 
-    /// 连接 iOS 设备并启动捕获
+    /// 连接 iOS 设备（不自动启动捕获，由用户手动点击开始）
     private func connectIOSDevice(_ device: IOSDevice) async {
         AppLogger.device.info("开始连接 iOS 设备: \(device.name), ID: \(device.id)")
 
@@ -243,14 +265,10 @@ final class AppState: ObservableObject {
             try await source.connect()
             AppLogger.device.info("iOS 设备已连接: \(device.name), 状态: \(source.state.displayText)")
 
-            // 先订阅帧流（确保在 startCapture 之前订阅）
+            // 订阅帧流（用户点击捕获后会收到帧）
             subscribeToIOSFrames(source)
-
-            // 自动启动捕获
-            try await source.startCapture()
-            AppLogger.capture.info("iOS 设备捕获已启动: \(device.name), 状态: \(source.state.displayText)")
         } catch {
-            AppLogger.device.error("iOS 设备连接/捕获失败: \(error.localizedDescription)")
+            AppLogger.device.error("iOS 设备连接失败: \(error.localizedDescription)")
             // 保留 source 以便 UI 显示错误状态
         }
     }
@@ -281,7 +299,7 @@ final class AppState: ObservableObject {
 
     // MARK: - Android 设备管理
 
-    /// 连接 Android 设备并启动捕获
+    /// 连接 Android 设备（不自动启动捕获，由用户手动点击开始）
     private func connectAndroidDevice(_ device: AndroidDevice) async {
         AppLogger.device.info("开始连接 Android 设备: \(device.displayName)")
 
@@ -298,11 +316,7 @@ final class AppState: ObservableObject {
             try await source.connect()
             AppLogger.device.info("Android 设备已连接: \(device.displayName)")
 
-            // 自动启动捕获
-            try await source.startCapture()
-            AppLogger.capture.info("Android 设备捕获已启动: \(device.displayName)")
-
-            // 订阅帧流
+            // 订阅帧流（用户点击捕获后会收到帧）
             subscribeToAndroidFrames(source)
         } catch {
             AppLogger.device.error("Android 设备连接失败: \(error.localizedDescription)")

@@ -16,6 +16,8 @@ struct SettingsView: View {
     // MARK: - Properties
 
     @ObservedObject var preferences: UserPreferences = .shared
+    @ObservedObject var permissionChecker: PermissionChecker = .init()
+    @ObservedObject var toolchainManager: ToolchainManager = .init()
 
     /// 自定义颜色绑定
     private var customColorBinding: Binding<Color> {
@@ -43,8 +45,18 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Scrcpy", systemImage: "antenna.radiowaves.left.and.right")
                 }
+
+            permissionsTab
+                .tabItem {
+                    Label("权限", systemImage: "lock.shield")
+                }
         }
-        .frame(width: 450, height: 380)
+        .frame(width: 450, height: 420)
+        .onAppear {
+            Task {
+                await permissionChecker.checkAll()
+            }
+        }
     }
 
     // MARK: - General Settings Tab
@@ -208,6 +220,276 @@ struct SettingsView: View {
                 }
             }
             .padding(20)
+        }
+    }
+
+    // MARK: - Permissions Tab
+
+    private var permissionsTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // 系统权限组
+                SettingsGroup(title: "系统权限", icon: "lock.shield") {
+                    ForEach(permissionChecker.permissions) { permission in
+                        PermissionRow(
+                            permission: permission,
+                            onRequest: {
+                                Task {
+                                    switch permission.id {
+                                    case "camera":
+                                        _ = await permissionChecker.requestCameraPermission()
+                                    case "screenRecording":
+                                        _ = await permissionChecker.requestScreenRecordingPermission()
+                                    default:
+                                        break
+                                    }
+                                }
+                            },
+                            onOpenSettings: {
+                                permissionChecker.openSystemPreferences(for: permission.id)
+                            }
+                        )
+
+                        if permission.id != permissionChecker.permissions.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+
+                // 工具链组
+                SettingsGroup(title: "工具链", icon: "wrench.and.screwdriver") {
+                    // adb
+                    ToolchainRow(
+                        name: "adb",
+                        description: "Android 调试工具",
+                        status: toolchainManager.adbStatus,
+                        version: toolchainManager.adbVersionDescription
+                    )
+
+                    Divider()
+
+                    // scrcpy
+                    ToolchainRow(
+                        name: "scrcpy",
+                        description: "Android 投屏工具",
+                        status: toolchainManager.scrcpyStatus,
+                        version: toolchainManager.scrcpyVersionDescription,
+                        installURL: URL(string: "https://github.com/Genymobile/scrcpy")
+                    )
+                }
+
+                // 刷新按钮
+                HStack {
+                    Spacer()
+                    Button {
+                        Task {
+                            await permissionChecker.checkAll()
+                            await toolchainManager.refresh()
+                        }
+                    } label: {
+                        Label("刷新状态", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(20)
+        }
+        .onAppear {
+            Task {
+                await toolchainManager.setup()
+            }
+        }
+    }
+}
+
+// MARK: - 权限行组件
+
+private struct PermissionRow: View {
+    let permission: PermissionItem
+    let onRequest: () -> Void
+    let onOpenSettings: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 状态图标
+            Image(systemName: permission.status.icon)
+                .font(.system(size: 18))
+                .foregroundColor(statusColor)
+                .frame(width: 24)
+
+            // 权限信息
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(permission.name)
+                        .font(.body)
+
+                    if permission.isRequired {
+                        Text("必需")
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.1))
+                            .foregroundColor(.red)
+                            .cornerRadius(3)
+                    } else {
+                        Text("可选")
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.1))
+                            .foregroundColor(.secondary)
+                            .cornerRadius(3)
+                    }
+                }
+
+                Text(permission.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            // 操作按钮
+            if permission.status == .granted {
+                Text("已授权")
+                    .font(.caption)
+                    .foregroundColor(.green)
+            } else {
+                HStack(spacing: 8) {
+                    Button("授权") {
+                        onRequest()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        onOpenSettings()
+                    } label: {
+                        Image(systemName: "gear")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("打开系统设置")
+                }
+            }
+        }
+    }
+
+    private var statusColor: Color {
+        switch permission.status {
+        case .granted:
+            .green
+        case .denied:
+            .red
+        case .notDetermined:
+            .orange
+        default:
+            .gray
+        }
+    }
+}
+
+// MARK: - 工具链行组件
+
+private struct ToolchainRow: View {
+    let name: String
+    let description: String
+    let status: ToolchainStatus
+    var version: String = ""
+    var installURL: URL?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 状态图标
+            Image(systemName: statusIcon)
+                .font(.system(size: 18))
+                .foregroundColor(statusColor)
+                .frame(width: 24)
+
+            // 工具信息
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(name)
+                        .font(.body)
+
+                    Text("可选")
+                        .font(.caption2)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .foregroundColor(.secondary)
+                        .cornerRadius(3)
+                }
+
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            // 状态/操作
+            switch status {
+            case let .installed(ver):
+                Text(ver.isEmpty ? "已安装" : ver)
+                    .font(.caption)
+                    .foregroundColor(.green)
+
+            case .installing:
+                HStack(spacing: 4) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("检查中...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+            case .notInstalled:
+                if let url = installURL {
+                    Link(destination: url) {
+                        Text("安装指南")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                } else {
+                    Text("未安装")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+
+            case let .error(message):
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var statusIcon: String {
+        switch status {
+        case .installed:
+            "checkmark.circle.fill"
+        case .installing:
+            "arrow.down.circle"
+        case .notInstalled:
+            "xmark.circle"
+        case .error:
+            "exclamationmark.circle.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .installed:
+            .green
+        case .installing:
+            .blue
+        case .notInstalled:
+            .orange
+        case .error:
+            .red
         }
     }
 }

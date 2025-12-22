@@ -72,35 +72,53 @@ struct IOSDevice: Identifiable, Hashable {
         let modelID = captureDevice.modelID
 
         // 调试日志
-        AppLogger.device.debug("检查设备: \(name), 类型: \(deviceType.rawValue), 模型: \(modelID)")
+        AppLogger.device.debug(
+            "检查设备: \(name), 类型: \(deviceType.rawValue), 模型: \(modelID), " +
+                "是否暂停: \(captureDevice.isSuspended), 是否在用: \(captureDevice.isInUseByAnotherApplication)"
+        )
+
+        // 必须是外部设备类型
+        let isExternalDevice = deviceType == .external || deviceType == .externalUnknown
+        guard isExternalDevice else {
+            AppLogger.device.debug("设备 \(name) 不是外部设备，跳过")
+            return nil
+        }
+
+        // 检查设备是否真正连接（不是缓存的设备）
+        // 已暂停的设备说明物理上已断开
+        guard !captureDevice.isSuspended else {
+            AppLogger.device.debug("设备 \(name) 已暂停（未连接），跳过")
+            return nil
+        }
 
         // 检查是否是 iOS 设备
-        // 方法1：通过设备名称判断
+        // 通过设备名称判断（名称通常包含 "iPhone"、"iPad" 等，或用户自定义名称 + "的相机"）
         let isIOSDeviceByName = name.contains("iPhone") ||
             name.contains("iPad") ||
-            name.contains("iPod")
+            name.contains("iPod") ||
+            name.hasSuffix("的相机") // 用户自定义名称的 iOS 设备
 
-        // 方法2：通过模型ID判断（iOS 设备的模型ID通常包含特定前缀）
-        let isIOSDeviceByModel = modelID.hasPrefix("iOS Device") ||
-            modelID.contains("Apple") ||
-            modelID.contains("iPhone") ||
-            modelID.contains("iPad")
+        // 通过模型ID判断（iOS 设备的模型ID格式如 "iPhone18,1"）
+        let isIOSDeviceByModel = modelID.hasPrefix("iPhone") ||
+            modelID.hasPrefix("iPad") ||
+            modelID.hasPrefix("iPod")
 
-        // 方法3：外部设备类型且不是普通摄像头
-        let isExternalDevice = deviceType == .external || deviceType == .externalUnknown
+        // 必须同时满足：外部设备 + (名称匹配 或 模型ID匹配)
+        let isIOSDevice = isIOSDeviceByName || isIOSDeviceByModel
 
-        // 综合判断：是外部设备，且名称或模型匹配 iOS 设备
-        let isIOSDevice = isExternalDevice && (isIOSDeviceByName || isIOSDeviceByModel)
-
-        // 额外检查：即使不是 .external 类型，如果名称明确包含 iPhone/iPad 也接受
-        let shouldAccept = isIOSDevice || isIOSDeviceByName
-
-        guard shouldAccept else {
+        guard isIOSDevice else {
             AppLogger.device.debug("设备 \(name) 不是 iOS 设备，跳过")
             return nil
         }
 
-        AppLogger.device.info("发现 iOS 设备: \(name)")
+        // 额外验证：尝试获取设备确保它真正可用
+        // 如果设备已断开，AVCaptureDevice(uniqueID:) 可能返回 nil 或设备不可用
+        guard AVCaptureDevice(uniqueID: captureDevice.uniqueID) != nil else {
+            AppLogger.device.debug("设备 \(name) 无法通过 ID 获取，跳过")
+            return nil
+        }
+
+        AppLogger.device.info("发现 iOS 设备: \(name), 模型: \(modelID)")
 
         return IOSDevice(
             id: captureDevice.uniqueID,

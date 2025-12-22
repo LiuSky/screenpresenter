@@ -86,10 +86,10 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
 
     /// 设置设备发现会话
     private func setupDiscoverySession() {
-        // 创建发现会话，监听外部视频设备
-        // 使用更广泛的设备类型以确保能检测到 iOS 设备
+        // 创建发现会话，只监听外部视频设备（iOS 设备）
+        // 不包含 builtInWideAngleCamera 以避免检测到 Mac 内置摄像头
         discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.external, .builtInWideAngleCamera],
+            deviceTypes: [.external],
             mediaType: .video,
             position: .unspecified
         )
