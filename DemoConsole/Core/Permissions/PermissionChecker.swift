@@ -87,9 +87,6 @@ final class PermissionChecker: ObservableObject {
     /// 摄像头权限（用于 iOS 设备检测）
     @Published private(set) var cameraStatus: PermissionStatus = .unknown
 
-    /// 辅助功能权限
-    @Published private(set) var accessibilityStatus: PermissionStatus = .unknown
-
     /// 是否所有必需权限都已授予
     var allPermissionsGranted: Bool {
         screenRecordingStatus == .granted && cameraStatus == .granted
@@ -116,16 +113,6 @@ final class PermissionChecker: ObservableObject {
                     string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
                 )
             ),
-            PermissionItem(
-                id: "accessibility",
-                name: "辅助功能",
-                description: "用于自动化操作 QuickTime（可选）",
-                status: accessibilityStatus,
-                isRequired: false,
-                settingsURL: URL(
-                    string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-                )
-            ),
         ]
     }
 
@@ -135,7 +122,6 @@ final class PermissionChecker: ObservableObject {
     func checkAll() async {
         await checkCameraPermission()
         await checkScreenRecordingPermission()
-        await checkAccessibilityPermission()
     }
 
     /// 检查摄像头权限（用于 iOS 设备检测）
@@ -157,7 +143,9 @@ final class PermissionChecker: ObservableObject {
     }
 
     /// 请求摄像头权限
+    /// 返回是否成功请求（会触发系统授权对话框，使应用出现在系统设置中）
     func requestCameraPermission() async -> Bool {
+        // 先请求权限，这会触发系统对话框并将应用添加到系统设置中
         let granted = await AVCaptureDevice.requestAccess(for: .video)
         await checkCameraPermission()
         return granted
@@ -189,36 +177,6 @@ final class PermissionChecker: ObservableObject {
         await checkScreenRecordingPermission()
 
         return result
-    }
-
-    /// 检查辅助功能权限
-    func checkAccessibilityPermission() async {
-        accessibilityStatus = .checking
-
-        // 使用不带提示的选项检查辅助功能权限
-        // 注意：AXIsProcessTrustedWithOptions 的结果可能被缓存
-        // 需要确保每次调用都获取最新状态
-        let options: [String: Any] = [
-            kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false,
-        ]
-        let trusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
-
-        // 也可以不带参数直接检查
-        let trustedSimple = AXIsProcessTrusted()
-
-        // 任一方法返回 true 则认为已授权
-        let isGranted = trusted || trustedSimple
-
-        accessibilityStatus = isGranted ? .granted : .denied
-    }
-
-    /// 请求辅助功能权限（会弹出系统对话框）
-    func requestAccessibilityPermission() {
-        // 带提示选项会触发系统授权对话框
-        let options: [String: Any] = [
-            kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true,
-        ]
-        _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
     /// 打开系统偏好设置

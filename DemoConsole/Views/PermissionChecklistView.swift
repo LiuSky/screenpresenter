@@ -58,8 +58,6 @@ struct PermissionChecklistView: View {
                                     Task {
                                         _ = await appState.permissionChecker.requestScreenRecordingPermission()
                                     }
-                                case "accessibility":
-                                    appState.permissionChecker.requestAccessibilityPermission()
                                 default:
                                     break
                                 }
