@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3D08D092E75081FC3BA6C7A9 /* IOSDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */; };
 		5EBC87BE3CCCA63A6D6AD322 /* qvh in Resources */ = {isa = PBXBuildFile; fileRef = 4BB1BC782C4396162646E34A /* qvh */; };
+		87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */; };
 		9DF67A37A1DC097C49BF57CF /* DevicePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38562AB0525A6749B71F6F93 /* DevicePreviewView.swift */; };
 		A1000001241A0001000001A1 /* DemoConsoleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001241A0002000001A1 /* DemoConsoleApp.swift */; };
 		A122E5909FCABEB4D3CBDCB1 /* QVHDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6115D8EF610066EDCEBCE5E5 /* QVHDeviceSource.swift */; };
@@ -28,9 +30,11 @@
 		A441335D2EF93201003DCDD3 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441331F2EF93201003DCDD3 /* Logger.swift */; };
 		A44133622EF93201003DCDD3 /* adb in Resources */ = {isa = PBXBuildFile; fileRef = A44133222EF93201003DCDD3 /* adb */; };
 		A44133632EF93201003DCDD3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A44133242EF93201003DCDD3 /* Assets.xcassets */; };
+		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IOSDeviceSource.swift; path = IOSDeviceSource.swift; sourceTree = "<group>"; };
 		38562AB0525A6749B71F6F93 /* DevicePreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DevicePreviewView.swift; sourceTree = "<group>"; };
 		4BB1BC782C4396162646E34A /* qvh */ = {isa = PBXFileReference; includeInIndex = 1; path = qvh; sourceTree = "<group>"; };
 		6115D8EF610066EDCEBCE5E5 /* QVHDeviceSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QVHDeviceSource.swift; sourceTree = "<group>"; };
@@ -55,6 +59,8 @@
 		A441332F2EF93201003DCDD3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A44133362EF93201003DCDD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A44133382EF93201003DCDD3 /* PermissionChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionChecklistView.swift; sourceTree = "<group>"; };
+		C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IOSDeviceProvider.swift; path = IOSDeviceProvider.swift; sourceTree = "<group>"; };
+		DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IOSDevice.swift; path = IOSDevice.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +117,8 @@
 			children = (
 				A44133032EF93201003DCDD3 /* AndroidDevice.swift */,
 				A44133042EF93201003DCDD3 /* AndroidDeviceProvider.swift */,
+				DC7BD7E5F57E69F54F103E7C /* IOSDevice.swift */,
+				C002C5D5475783B3147480AC /* IOSDeviceProvider.swift */,
 			);
 			path = DeviceDiscovery;
 			sourceTree = "<group>";
@@ -121,6 +129,7 @@
 				A44133062EF93201003DCDD3 /* DeviceSource.swift */,
 				A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */,
 				6115D8EF610066EDCEBCE5E5 /* QVHDeviceSource.swift */,
+				2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */,
 			);
 			path = DeviceSource;
 			sourceTree = "<group>";
@@ -308,6 +317,9 @@
 				A1000001241A0001000001A1 /* DemoConsoleApp.swift in Sources */,
 				9DF67A37A1DC097C49BF57CF /* DevicePreviewView.swift in Sources */,
 				A122E5909FCABEB4D3CBDCB1 /* QVHDeviceSource.swift in Sources */,
+				3D08D092E75081FC3BA6C7A9 /* IOSDevice.swift in Sources */,
+				87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */,
+				DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

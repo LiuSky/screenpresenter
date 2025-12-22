@@ -148,7 +148,7 @@ struct ContentView: View {
                 isRefreshing = false
 
                 // 获取刷新后的设备数量
-                let iosCount = appState.qvhDeviceManager.devices.count
+                let iosCount = appState.iosDeviceProvider.devices.count
                 let androidCount = appState.androidDeviceProvider.devices.count
                 let totalCount = iosCount + androidCount
 
@@ -381,235 +381,30 @@ struct ContentView: View {
     /// Android 设备面板
     private var androidDevicePanel: some View {
         devicePreviewPanel(
-            title: "Android",
+            platform: .android,
+            hasDevice: !appState.androidDeviceProvider.devices.isEmpty,
             deviceName: appState.androidDeviceName,
             deviceSource: appState.androidDeviceSource,
             connectionGuide: "使用 USB 数据线连接 Android 设备"
         )
     }
 
-    /// iOS 设备面板（使用 QVH）
+    /// iOS 设备面板
     private var iosDevicePanel: some View {
-        qvhDevicePreviewPanel()
-    }
-
-    // MARK: - QVH 设备预览面板
-
-    /// QVH (iOS) 设备预览面板
-    private func qvhDevicePreviewPanel() -> some View {
-        // 根据主题决定文字颜色
-        let textColor = colorScheme == .dark ? Color.white : Color.black
-        let secondaryTextOpacity = colorScheme == .dark ? 0.5 : 0.4
-        let tertiaryTextOpacity = colorScheme == .dark ? 0.4 : 0.3
-
-        let deviceSource = appState.iosDeviceSource
-        let isCapturing = deviceSource?.state == .capturing
-        let hasDevice = !appState.qvhDeviceManager.devices.isEmpty
-        let deviceName = appState.iosDeviceName
-
-        return ZStack {
-            // 设备内容区
-            if isCapturing, let source = deviceSource {
-                // 捕获中：使用 TimelineView 定期刷新画面
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
-                    if let frame = source.latestFrame, let cgImage = createCGImage(from: frame) {
-                        GeometryReader { geometry in
-                            Image(nsImage: NSImage(
-                                cgImage: cgImage,
-                                size: NSSize(width: cgImage.width, height: cgImage.height)
-                            ))
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: geometry.size.width, maxHeight: geometry.size.height)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                        }
-                    } else {
-                        // 等待第一帧
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            Text("等待画面...")
-                                .font(.caption)
-                                .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-                        }
-                    }
-                }
-            } else if let source = deviceSource, source.state == .connecting {
-                // 连接中
-                VStack(spacing: 20) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    Text("正在启动投屏...")
-                        .font(.headline)
-                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-                    Text("qvh 进程启动中")
-                        .font(.caption)
-                        .foregroundStyle(textColor.opacity(tertiaryTextOpacity))
-                }
-            } else if let source = deviceSource, case let .error(error) = source.state {
-                // 错误状态
-                VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.orange)
-                    Text(error.localizedDescription)
-                        .font(.caption)
-                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-                        .multilineTextAlignment(.center)
-
-                    // 重试按钮
-                    Button {
-                        Task {
-                            await appState.startIOSCapture()
-                        }
-                    } label: {
-                        Label("重试", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                }
-            } else if hasDevice {
-                // 设备已发现，等待用户启动捕获
-                VStack(spacing: 20) {
-                    // 设备图标
-                    Image("IOSIcon")
-                        .renderingMode(.template)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 80)
-                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-
-                    // 设备名称
-                    if let name = deviceName {
-                        Text(name)
-                            .font(.title2.bold())
-                            .foregroundStyle(textColor.opacity(0.8))
-                    }
-
-                    // QVH 状态指示
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text("已检测到设备")
-                            .font(.caption)
-                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-                    }
-
-                    // 捕获按钮
-                    Button {
-                        Task {
-                            await appState.startIOSCapture()
-                        }
-                    } label: {
-                        Label("开始投屏", systemImage: "play.fill")
-                            .font(.headline)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-
-                    Text("使用 quicktime_video_hack 直接捕获屏幕")
-                        .font(.caption2)
-                        .foregroundStyle(textColor.opacity(tertiaryTextOpacity))
-                }
-            } else {
-                // 未连接：显示设备类型和大图标
-                VStack(spacing: 20) {
-                    // 大设备图标
-                    Image("IOSIcon")
-                        .renderingMode(.template)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 120)
-                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-
-                    // 设备类型名称
-                    Text("iPhone")
-                        .font(.title.bold())
-                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
-
-                    // 连接指引
-                    VStack(spacing: 8) {
-                        Image(systemName: "cable.connector")
-                            .font(.system(size: 24))
-                            .foregroundStyle(textColor.opacity(tertiaryTextOpacity))
-
-                        Text("使用 USB 数据线连接 iPhone")
-                            .font(.caption)
-                            .foregroundStyle(textColor.opacity(tertiaryTextOpacity))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
-
-                    // 检查 qvh 状态
-                    if !appState.qvhDeviceManager.isQVHInstalled {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                            Text("qvh 工具未安装")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
-                        .padding(.top, 8)
-                    }
-                }
-            }
-
-            // 顶部状态栏（仅捕获时悬浮在内容上方）
-            VStack {
-                if isCapturing, let source = deviceSource {
-                    HStack {
-                        // 状态指示灯
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-
-                        Text("捕获中 (QVH)")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.9))
-
-                        Spacer()
-
-                        // 捕获尺寸信息
-                        if source.captureSize != .zero {
-                            Text("\(Int(source.captureSize.width))×\(Int(source.captureSize.height))")
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-
-                        if source.frameRate > 0 {
-                            Text("\(Int(source.frameRate)) fps")
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-
-                        // 停止捕获按钮
-                        Button {
-                            Task {
-                                await appState.stopIOSCapture()
-                            }
-                        } label: {
-                            Image(systemName: "stop.fill")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.white.opacity(0.8))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.5))
-                }
-
-                Spacer()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background((colorScheme == .dark ? Color.black : Color.white).opacity(0.1))
+        devicePreviewPanel(
+            platform: .ios,
+            hasDevice: !appState.iosDeviceProvider.devices.isEmpty,
+            deviceName: appState.iosDeviceName,
+            deviceSource: appState.iosDeviceSource,
+            connectionGuide: "使用 USB 数据线连接 iPhone"
+        )
     }
 
     // MARK: - 设备预览面板
 
     private func devicePreviewPanel(
-        title: String,
+        platform: DevicePlatform,
+        hasDevice: Bool,
         deviceName: String?,
         deviceSource: BaseDeviceSource?,
         connectionGuide: String
@@ -671,7 +466,7 @@ struct ContentView: View {
 
                     case .connected:
                         // 设备图标
-                        Image(title == "Android" ? "AndroidIcon" : "IOSIcon")
+                        Image(platform == .android ? "AndroidIcon" : "IOSIcon")
                             .renderingMode(.template)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -773,11 +568,57 @@ struct ContentView: View {
                             .foregroundStyle(textColor.opacity(secondaryTextOpacity))
                     }
                 }
-            } else {
-                // 未连接：显示设备类型和大图标
+            } else if hasDevice {
+                // 设备已发现但未连接
                 VStack(spacing: 20) {
-                    // 大设备图标（使用 AppIcon 上的设备 icon）
-                    Image(title == "Android" ? "AndroidIcon" : "IOSIcon")
+                    // 大设备图标
+                    Image(platform == .android ? "AndroidIcon" : "IOSIcon")
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 80)
+                        .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+
+                    // 设备名称
+                    if let name = deviceName {
+                        Text(name)
+                            .font(.title2.bold())
+                            .foregroundStyle(textColor.opacity(0.8))
+                    }
+
+                    // 状态指示
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        Text("已检测到设备")
+                            .font(.caption)
+                            .foregroundStyle(textColor.opacity(secondaryTextOpacity))
+                    }
+
+                    // 连接按钮（iOS 设备需要点击捕获）
+                    if platform == .ios {
+                        Button {
+                            Task {
+                                await appState.startIOSCapture()
+                            }
+                        } label: {
+                            Label("开始投屏", systemImage: "play.fill")
+                                .font(.headline)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+
+                        Text("直接捕获 iPhone 屏幕")
+                            .font(.caption2)
+                            .foregroundStyle(textColor.opacity(tertiaryTextOpacity))
+                    }
+                }
+            } else {
+                // 未发现设备：显示设备类型和连接指引
+                VStack(spacing: 20) {
+                    // 大设备图标
+                    Image(platform == .android ? "AndroidIcon" : "IOSIcon")
                         .renderingMode(.template)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -785,7 +626,7 @@ struct ContentView: View {
                         .foregroundStyle(textColor.opacity(secondaryTextOpacity))
 
                     // 设备类型名称
-                    Text(title)
+                    Text(platform == .android ? "Android" : "iPhone")
                         .font(.title.bold())
                         .foregroundStyle(textColor.opacity(secondaryTextOpacity))
 
