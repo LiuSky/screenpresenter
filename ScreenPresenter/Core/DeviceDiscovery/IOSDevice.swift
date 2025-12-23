@@ -33,6 +33,44 @@ struct IOSDevice: Identifiable, Hashable {
     /// 关联的 AVCaptureDevice
     weak var captureDevice: AVCaptureDevice?
 
+    // MARK: - MobileDevice 增强信息（可选，不影响主流程）
+
+    /// 增强的设备信息（来自 MobileDevice.framework）
+    var insight: IOSDeviceInsight?
+
+    /// 用户提示信息（信任状态、占用状态等）
+    var userPrompt: String?
+
+    /// 显示名称（优先使用 insight 中的用户设备名）
+    var displayName: String {
+        // 优先使用 MobileDevice 提供的用户设置的设备名
+        if let insight, insight.deviceName != "iOS 设备" {
+            return insight.deviceName
+        }
+        return name
+    }
+
+    /// 详细型号名称（优先使用 insight 中的型号名）
+    var displayModelName: String? {
+        // 优先使用 MobileDevice 提供的型号名
+        if let insight, insight.modelName != L10n.deviceInfo.unknownModel {
+            return insight.modelName
+        }
+        // 尝试从 modelID 映射
+        if let modelID {
+            let mapped = DeviceInsightService.modelName(for: modelID)
+            if mapped != modelID {
+                return mapped
+            }
+        }
+        return modelID
+    }
+
+    /// iOS 版本
+    var systemVersion: String? {
+        insight?.systemVersion
+    }
+
     /// 连接类型枚举
     enum ConnectionType: String {
         case usb = "USB"
@@ -54,7 +92,9 @@ struct IOSDevice: Identifiable, Hashable {
         modelID: String? = nil,
         connectionType: ConnectionType = .usb,
         locationID: UInt32? = nil,
-        captureDevice: AVCaptureDevice? = nil
+        captureDevice: AVCaptureDevice? = nil,
+        insight: IOSDeviceInsight? = nil,
+        userPrompt: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -62,6 +102,8 @@ struct IOSDevice: Identifiable, Hashable {
         self.connectionType = connectionType
         self.locationID = locationID
         self.captureDevice = captureDevice
+        self.insight = insight
+        self.userPrompt = userPrompt
     }
 
     // MARK: - 从 AVCaptureDevice 创建
@@ -98,7 +140,24 @@ struct IOSDevice: Identifiable, Hashable {
         // 清理设备名称，去掉系统添加的后缀
         let displayName = cleanDeviceName(rawName)
 
-        AppLogger.device.info("发现 iOS 设备: \(displayName), 模型: \(modelID)")
+        // 获取 MobileDevice 增强信息（不影响主流程）
+        let insightService = DeviceInsightService.shared
+        let insight = insightService.getDeviceInsight(for: captureDevice.uniqueID)
+        let userPrompt = insightService.getUserPrompt(for: insight)
+
+        // 记录增强信息
+        if insightService.isMobileDeviceAvailable {
+            AppLogger.device.info(
+                "发现 iOS 设备: \(insight.deviceName), 模型: \(insight.modelName), iOS: \(insight.systemVersion)"
+            )
+        } else {
+            AppLogger.device.info("发现 iOS 设备: \(displayName), 模型: \(modelID)")
+        }
+
+        // 记录用户提示
+        if let prompt = userPrompt {
+            AppLogger.device.warning("设备状态提示: \(prompt)")
+        }
 
         return IOSDevice(
             id: captureDevice.uniqueID,
@@ -106,7 +165,9 @@ struct IOSDevice: Identifiable, Hashable {
             modelID: modelID,
             connectionType: .usb,
             locationID: nil,
-            captureDevice: captureDevice
+            captureDevice: captureDevice,
+            insight: insight,
+            userPrompt: userPrompt
         )
     }
 

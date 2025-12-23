@@ -169,6 +169,7 @@ final class MainViewController: NSViewController {
             leftOverlayView.showConnected(
                 deviceName: appState.iosDeviceName ?? "iOS",
                 platform: .ios,
+                userPrompt: appState.iosDeviceUserPrompt,
                 onStart: { [weak self] in
                     self?.startIOSCapture()
                 }

@@ -364,8 +364,8 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
                         continue
                     }
 
-                    // 送入解码器
-                    await decoder?.decode(data: data)
+                    // 送入解码器（在专用解码队列异步执行）
+                    decoder?.decode(data: data)
 
                 } catch {
                     if !Task.isCancelled {
@@ -448,6 +448,15 @@ private final class VideoToolboxDecoder {
     /// 是否已初始化
     private var isInitialized = false
 
+    /// 专用解码队列（高优先级，确保低延迟解码）
+    private let decodeQueue = DispatchQueue(
+        label: "com.screenPresenter.android.decode",
+        qos: .userInteractive
+    )
+
+    /// 用于保护解码器状态的锁
+    private let decoderLock = NSLock()
+
     init(codecType: CMVideoCodecType) {
         self.codecType = codecType
         nalParser = NALUnitParser(codecType: codecType)
@@ -460,25 +469,33 @@ private final class VideoToolboxDecoder {
     }
 
     /// 解码数据
-    func decode(data: Data) async {
-        // 解析 NAL 单元
-        let nalUnits = nalParser.parse(data: data)
+    /// 将数据送入专用解码队列进行异步解码
+    func decode(data: Data) {
+        decodeQueue.async { [weak self] in
+            guard let self else { return }
 
-        for nalUnit in nalUnits {
-            // 检查是否是参数集
-            if nalUnit.isParameterSet {
-                if !isInitialized {
-                    // 尝试初始化解码器
-                    if initializeDecoder(with: nalUnit) {
-                        isInitialized = true
+            decoderLock.lock()
+            defer { decoderLock.unlock() }
+
+            // 解析 NAL 单元
+            let nalUnits = nalParser.parse(data: data)
+
+            for nalUnit in nalUnits {
+                // 检查是否是参数集
+                if nalUnit.isParameterSet {
+                    if !isInitialized {
+                        // 尝试初始化解码器
+                        if initializeDecoder(with: nalUnit) {
+                            isInitialized = true
+                        }
                     }
+                    continue
                 }
-                continue
-            }
 
-            // 解码视频帧
-            if isInitialized {
-                decodeNALUnit(nalUnit)
+                // 解码视频帧
+                if isInitialized {
+                    decodeNALUnit(nalUnit)
+                }
             }
         }
     }

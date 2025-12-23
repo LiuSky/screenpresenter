@@ -195,14 +195,35 @@ final class DeviceOverlayView: NSView {
     }
 
     /// 显示已连接状态
-    func showConnected(deviceName: String, platform: DevicePlatform, onStart: @escaping () -> Void) {
+    /// - Parameters:
+    ///   - deviceName: 设备名称
+    ///   - platform: 设备平台
+    ///   - userPrompt: 用户提示信息（可选，来自 MobileDevice 增强层）
+    ///   - onStart: 开始捕获回调
+    func showConnected(
+        deviceName: String,
+        platform: DevicePlatform,
+        userPrompt: String? = nil,
+        onStart: @escaping () -> Void
+    ) {
         currentState = .connected
 
         let iconName = platform == .ios ? "iphone" : "candybarphone"
         iconImageView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+        iconImageView.contentTintColor = .white
 
         titleLabel.stringValue = deviceName
-        subtitleLabel.stringValue = L10n.overlayUI.deviceReady
+
+        // 如果有用户提示（如未信任、被占用），显示警告
+        if let prompt = userPrompt {
+            subtitleLabel.stringValue = "⚠️ \(prompt)"
+            subtitleLabel.textColor = NSColor.systemOrange
+            statusIndicator.layer?.backgroundColor = NSColor.systemOrange.cgColor
+        } else {
+            subtitleLabel.stringValue = L10n.overlayUI.deviceReady
+            subtitleLabel.textColor = NSColor.white.withAlphaComponent(0.7)
+            statusIndicator.layer?.backgroundColor = NSColor.systemGreen.cgColor
+        }
 
         actionButton.title = L10n.overlayUI.startCapture
         actionButton.isEnabled = true
@@ -210,8 +231,6 @@ final class DeviceOverlayView: NSView {
 
         stopButton.isHidden = true
         fpsLabel.isHidden = true
-
-        statusIndicator.layer?.backgroundColor = NSColor.systemGreen.cgColor
 
         onStartAction = onStart
     }

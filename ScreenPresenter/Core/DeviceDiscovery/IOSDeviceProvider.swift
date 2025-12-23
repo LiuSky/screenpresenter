@@ -7,6 +7,11 @@
 //  iOS 设备提供者
 //  使用 AVFoundation 发现和管理 USB 连接的 iOS 设备
 //
+//  设备事件监听策略：
+//  - 主要：AVFoundation 通知（连接/断开）— 稳定的公开 API
+//  - 增强：定期刷新 DeviceInsight（状态变化检测）— 轻量级补充
+//  - 不使用 MobileDevice 原生事件，避免私有 API 不稳定性
+//
 
 import AVFoundation
 import Combine
@@ -27,10 +32,16 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     /// 最后一次错误
     @Published private(set) var lastError: String?
 
+    // MARK: - 配置
+
+    /// 状态刷新间隔（秒）— 用于检测信任/占用状态变化
+    private let insightRefreshInterval: TimeInterval = 5.0
+
     // MARK: - 私有属性
 
     private var discoverySession: AVCaptureDevice.DiscoverySession?
     private var deviceObservation: NSKeyValueObservation?
+    private var insightRefreshTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - 初始化
@@ -42,6 +53,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
 
     deinit {
         deviceObservation?.invalidate()
+        insightRefreshTask?.cancel()
     }
 
     // MARK: - 公开方法
@@ -53,6 +65,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         isMonitoring = true
         lastError = nil
         setupDiscoverySession()
+        startInsightRefresh()
     }
 
     /// 设置设备发现会话
@@ -83,6 +96,8 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         deviceObservation?.invalidate()
         deviceObservation = nil
         discoverySession = nil
+        insightRefreshTask?.cancel()
+        insightRefreshTask = nil
 
         AppLogger.device.info("iOS 设备监控已停止")
     }
@@ -128,9 +143,93 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
                 AppLogger.device.info("未发现 iOS 设备")
             } else {
                 for device in iosDevices {
-                    AppLogger.device.info("发现 iOS 设备: \(device.name)")
+                    // 使用增强的设备信息显示
+                    let displayInfo = buildDeviceDisplayInfo(device)
+                    AppLogger.device.info("iOS 设备已更新: \(displayInfo)")
                 }
             }
+        }
+    }
+
+    /// 构建设备显示信息（用于日志和诊断）
+    private func buildDeviceDisplayInfo(_ device: IOSDevice) -> String {
+        var info = device.displayName
+
+        if let modelName = device.displayModelName {
+            info += " (\(modelName))"
+        }
+
+        if let version = device.systemVersion, version != L10n.deviceInfo.unknown {
+            info += " iOS \(version)"
+        }
+
+        if let prompt = device.userPrompt {
+            info += " ⚠️ \(prompt)"
+        }
+
+        return info
+    }
+
+    /// 获取设备的用户提示信息（用于 UI 显示）
+    func getUserPrompt(for deviceID: String) -> String? {
+        devices.first { $0.id == deviceID }?.userPrompt
+    }
+
+    // MARK: - Insight 状态刷新（轻量级增强）
+
+    /// 启动定期状态刷新
+    /// 用于检测设备状态变化（信任、占用等），补充 AVFoundation 的连接/断开事件
+    private func startInsightRefresh() {
+        insightRefreshTask?.cancel()
+        insightRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(self?.insightRefreshInterval ?? 5.0) * 1_000_000_000)
+
+                guard !Task.isCancelled, let self else { break }
+
+                // 只在有设备时刷新 insight
+                if !devices.isEmpty {
+                    await refreshDeviceInsights()
+                }
+            }
+        }
+
+        AppLogger.device.debug("设备状态刷新已启动，间隔: \(insightRefreshInterval)s")
+    }
+
+    /// 刷新所有设备的 insight 信息
+    /// 检测状态变化（信任、占用等）并更新 UI
+    private func refreshDeviceInsights() async {
+        guard let session = discoverySession else { return }
+
+        var hasChanges = false
+
+        for captureDevice in session.devices {
+            guard let existingDevice = devices.first(where: { $0.id == captureDevice.uniqueID }) else {
+                continue
+            }
+
+            // 重新获取 insight
+            let insightService = DeviceInsightService.shared
+            let newInsight = insightService.getDeviceInsight(for: captureDevice.uniqueID)
+            let newPrompt = insightService.getUserPrompt(for: newInsight)
+
+            // 检测状态变化
+            let oldPrompt = existingDevice.userPrompt
+            if newPrompt != oldPrompt {
+                hasChanges = true
+
+                if let prompt = newPrompt {
+                    AppLogger.device.warning("设备状态变化: \(existingDevice.displayName) - \(prompt)")
+                } else if oldPrompt != nil {
+                    AppLogger.device.info("设备状态恢复正常: \(existingDevice.displayName)")
+                }
+            }
+        }
+
+        // 如果有变化，完整刷新设备列表（会触发 UI 更新）
+        if hasChanges {
+            refreshDevices()
         }
     }
 

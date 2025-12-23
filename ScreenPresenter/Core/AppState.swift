@@ -217,7 +217,18 @@ final class AppState {
                 let source = IOSDeviceSource(device: device)
                 iosDeviceSource = source
 
-                AppLogger.device.info("iOS 设备已连接: \(device.name)")
+                // 使用增强的设备信息记录日志
+                var logMessage = "iOS 设备已连接: \(device.displayName)"
+                if let modelName = device.displayModelName {
+                    logMessage += " (\(modelName))"
+                }
+                AppLogger.device.info("\(logMessage)")
+
+                // 如果有用户提示，单独记录
+                if let prompt = device.userPrompt {
+                    AppLogger.device.warning("iOS 设备状态: \(prompt)")
+                }
+
                 stateChangedPublisher.send()
             }
         } else {
@@ -276,9 +287,19 @@ final class AppState {
         !iosDeviceProvider.devices.isEmpty
     }
 
-    /// iOS 设备名称
+    /// iOS 设备名称（优先使用 MobileDevice 增强的名称）
     var iosDeviceName: String? {
-        iosDeviceProvider.devices.first?.name
+        iosDeviceProvider.devices.first?.displayName
+    }
+
+    /// iOS 设备型号名称
+    var iosDeviceModelName: String? {
+        iosDeviceProvider.devices.first?.displayModelName
+    }
+
+    /// iOS 设备用户提示（信任状态、占用状态等）
+    var iosDeviceUserPrompt: String? {
+        iosDeviceProvider.devices.first?.userPrompt
     }
 
     /// iOS 是否正在捕获
