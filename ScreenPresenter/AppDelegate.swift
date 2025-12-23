@@ -9,6 +9,7 @@
 //
 
 import AppKit
+import AVFoundation
 
 // MARK: - 应用程序委托
 
@@ -21,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 应用生命周期
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        print("=== ScreenPresenter 应用启动 ===")
         AppLogger.app.info("应用启动")
 
         // 创建主菜单（纯代码 AppKit 应用必须）
@@ -30,6 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dalEnabled = IOSScreenMirrorActivator.shared.enableDALDevices()
         AppLogger.app.info("DAL 设备启用结果: \(dalEnabled)")
 
+        // 请求摄像头权限（iOS 设备投屏需要）
+        requestCameraPermission()
+
         // 创建主窗口
         setupMainWindow()
 
@@ -38,6 +43,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppLogger.app.info("开始异步初始化应用状态...")
             await AppState.shared.initialize()
             AppLogger.app.info("应用状态初始化完成")
+        }
+    }
+
+    /// 请求摄像头权限
+    private func requestCameraPermission() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        print("摄像头权限状态: \(status.rawValue) (0=未确定, 1=受限, 2=拒绝, 3=已授权)")
+
+        if status == .notDetermined {
+            print("请求摄像头权限...")
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                print("摄像头权限请求结果: \(granted ? "已授权" : "已拒绝")")
+            }
+        } else if status == .denied {
+            print("摄像头权限已被拒绝，请在系统设置中开启")
+        } else if status == .authorized {
+            print("摄像头权限已授权")
         }
     }
 

@@ -30,7 +30,6 @@
 		B1000001000000000008 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000008 /* ToolbarView.swift */; };
 		B1000001000000000009 /* DeviceInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000009 /* DeviceInsightService.swift */; };
 		B1000001000000000010 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000010 /* Localization.swift */; };
-		F1000001000000000001 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000002000000000001 /* Colors.swift */; };
 		B1000001000000000011 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B1000002000000000011 /* Localizable.strings */; };
 		C1000001000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000002000000000001 /* main.swift */; };
 		D1000001000000000001 /* DevicePanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000001 /* DevicePanelView.swift */; };
@@ -38,6 +37,7 @@
 		D1000001000000000003 /* DeviceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000002000000000003 /* DeviceModel.swift */; };
 		DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */; };
 		E1000001000000000001 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E1000002000000000001 /* SnapKit */; };
+		F1000001000000000001 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000002000000000001 /* Colors.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */

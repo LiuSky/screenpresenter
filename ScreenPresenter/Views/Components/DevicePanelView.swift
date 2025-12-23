@@ -97,16 +97,29 @@ final class DevicePanelView: NSView {
     private var currentState: PanelState = .disconnected
     private var currentPlatform: DevicePlatform = .ios
 
+    // MARK: - 鼠标追踪
+
+    private var trackingArea: NSTrackingArea?
+    private var isMouseInside: Bool = false
+
     // MARK: - 初始化
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupUI()
+        setupTrackingArea()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
+        setupTrackingArea()
+    }
+
+    deinit {
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+        }
     }
 
     // MARK: - UI 设置
@@ -124,7 +137,67 @@ final class DevicePanelView: NSView {
         bezelView = DeviceBezelView()
         addSubview(bezelView)
         bezelView.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(8)
+            // 填满父视图，bezelView 内部会根据 aspectRatio 自动调整设备尺寸
+            make.edges.equalToSuperview()
+        }
+    }
+
+    private func setupTrackingArea() {
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect]
+        trackingArea = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let oldTrackingArea = trackingArea {
+            removeTrackingArea(oldTrackingArea)
+        }
+
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect]
+        trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isMouseInside = true
+        updateCaptureBarVisibility()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isMouseInside = false
+        updateCaptureBarVisibility()
+    }
+
+    private func updateCaptureBarVisibility() {
+        guard currentState == .capturing else {
+            captureBarView.isHidden = true
+            return
+        }
+
+        if isMouseInside {
+            // 显示前先更新位置
+            updateCaptureBarPosition()
+            captureBarView.isHidden = false
+            captureBarView.alphaValue = 0
+
+            // 淡入动画
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                captureBarView.animator().alphaValue = 1.0
+            }
+        } else {
+            // 淡出动画
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                captureBarView.animator().alphaValue = 0.0
+            } completionHandler: { [weak self] in
+                guard let self, !self.isMouseInside else { return }
+                captureBarView.isHidden = true
+            }
         }
     }
 
@@ -226,16 +299,14 @@ final class DevicePanelView: NSView {
     }
 
     private func setupCaptureBar() {
-        // 捕获中的悬浮栏（放在边框屏幕区域的顶部）
+        // 捕获中的悬浮栏（放在 bezelView 上层，不遮挡 screenContentView）
         captureBarView = NSView()
         captureBarView.wantsLayer = true
         captureBarView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        captureBarView.layer?.cornerRadius = 6
         captureBarView.isHidden = true
-        bezelView.screenContentView.addSubview(captureBarView)
-        captureBarView.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
-            make.height.equalTo(28)
-        }
+        addSubview(captureBarView)
+        // 约束会在 layout() 中根据 screenFrame 动态更新
 
         // 状态指示灯
         captureIndicator = NSView()
@@ -264,7 +335,7 @@ final class DevicePanelView: NSView {
         stopButton.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: L10n.overlayUI.stop)
         stopButton.bezelStyle = .inline
         stopButton.isBordered = false
-        stopButton.contentTintColor = .white
+        stopButton.contentTintColor = .appDanger
         captureBarView.addSubview(stopButton)
         stopButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-10)
@@ -380,7 +451,15 @@ final class DevicePanelView: NSView {
         configureBezel(for: platform, deviceName: deviceName, aspectRatio: resolution)
 
         statusContainerView.isHidden = true
-        captureBarView.isHidden = false
+
+        // 初始隐藏 captureBarView，只有鼠标悬停时才显示
+        captureBarView.isHidden = !isMouseInside
+        captureBarView.alphaValue = isMouseInside ? 1.0 : 0.0
+
+        // 更新捕获栏位置
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        updateCaptureBarPosition()
 
         captureStatusLabel.stringValue = L10n.device.capturing
 
@@ -491,5 +570,28 @@ final class DevicePanelView: NSView {
         animation.autoreverses = true
         animation.repeatCount = .infinity
         view.layer?.add(animation, forKey: "pulse")
+    }
+
+    // MARK: - 布局
+
+    override func layout() {
+        super.layout()
+        updateCaptureBarPosition()
+    }
+
+    /// 更新捕获栏位置（跟随屏幕区域）
+    private func updateCaptureBarPosition() {
+        let screen = screenFrame
+        guard screen.width > 0, screen.height > 0 else { return }
+
+        let barHeight: CGFloat = 28
+        let barInset: CGFloat = 4
+
+        captureBarView.frame = CGRect(
+            x: screen.minX + barInset,
+            y: screen.maxY - barHeight - barInset,
+            width: screen.width - barInset * 2,
+            height: barHeight
+        )
     }
 }

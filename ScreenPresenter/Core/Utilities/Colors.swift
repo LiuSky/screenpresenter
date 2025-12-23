@@ -17,4 +17,9 @@ extension NSColor {
     static var appAccent: NSColor {
         NSColor(named: "AccentColor") ?? .controlAccentColor
     }
+
+    /// 危险/停止操作颜色（红色）
+    static var appDanger: NSColor {
+        NSColor(named: "DangerColor") ?? .systemRed
+    }
 }

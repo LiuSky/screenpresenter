@@ -130,28 +130,7 @@ final class DeviceBezelView: NSView {
         let bezelCornerRadius = deviceWidth * deviceModel.bezelCornerRadiusRatio
         let screenCornerRadius = deviceWidth * deviceModel.screenCornerRadiusRatio
 
-        // 外边缘高光
-        let outerRect = deviceRect.insetBy(dx: -0.5, dy: -0.5)
-        outerHighlightLayer.strokeColor = deviceModel.bezelHighlightColor.withAlphaComponent(0.3).cgColor
-        outerHighlightLayer.path = NSBezierPath(
-            roundedRect: outerRect,
-            xRadius: bezelCornerRadius + 0.5,
-            yRadius: bezelCornerRadius + 0.5
-        ).cgPath
-
-        // 主边框
-        drawBezelWithGradient(rect: deviceRect, cornerRadius: bezelCornerRadius)
-
-        // 内边缘高光
-        let innerHighlightRect = deviceRect.insetBy(dx: bezelWidth - 0.5, dy: bezelWidth - 0.5)
-        innerHighlightLayer.strokeColor = deviceModel.bezelHighlightColor.withAlphaComponent(0.15).cgColor
-        innerHighlightLayer.path = NSBezierPath(
-            roundedRect: innerHighlightRect,
-            xRadius: screenCornerRadius + 0.5,
-            yRadius: screenCornerRadius + 0.5
-        ).cgPath
-
-        // 屏幕区域
+        // 计算屏幕区域（需要先计算，供镂空使用）
         var screenRect = deviceRect.insetBy(dx: bezelWidth, dy: bezelWidth)
 
         // iPhone SE / Legacy 需要更大的顶部和底部边框
@@ -165,6 +144,33 @@ final class DeviceBezelView: NSView {
             )
         }
 
+        // 外边缘高光
+        let outerRect = deviceRect.insetBy(dx: -0.5, dy: -0.5)
+        outerHighlightLayer.strokeColor = deviceModel.bezelHighlightColor.withAlphaComponent(0.3).cgColor
+        outerHighlightLayer.path = NSBezierPath(
+            roundedRect: outerRect,
+            xRadius: bezelCornerRadius + 0.5,
+            yRadius: bezelCornerRadius + 0.5
+        ).cgPath
+
+        // 主边框（中间镂空）
+        drawBezelWithGradient(
+            rect: deviceRect,
+            cornerRadius: bezelCornerRadius,
+            screenRect: screenRect,
+            screenCornerRadius: screenCornerRadius
+        )
+
+        // 内边缘高光
+        let innerHighlightRect = deviceRect.insetBy(dx: bezelWidth - 0.5, dy: bezelWidth - 0.5)
+        innerHighlightLayer.strokeColor = deviceModel.bezelHighlightColor.withAlphaComponent(0.15).cgColor
+        innerHighlightLayer.path = NSBezierPath(
+            roundedRect: innerHighlightRect,
+            xRadius: screenCornerRadius + 0.5,
+            yRadius: screenCornerRadius + 0.5
+        ).cgPath
+
+        // 屏幕区域路径
         let screenPath = NSBezierPath(roundedRect: screenRect, xRadius: screenCornerRadius, yRadius: screenCornerRadius)
         screenLayer.path = screenPath.cgPath
 
@@ -175,12 +181,26 @@ final class DeviceBezelView: NSView {
         updateSideButtons(deviceRect: deviceRect, deviceWidth: deviceWidth, deviceHeight: deviceHeight)
     }
 
-    private func drawBezelWithGradient(rect: CGRect, cornerRadius: CGFloat) {
+    private func drawBezelWithGradient(
+        rect: CGRect,
+        cornerRadius: CGFloat,
+        screenRect: CGRect,
+        screenCornerRadius: CGFloat
+    ) {
         let baseColor = deviceModel.bezelBaseColor
         let highlightColor = deviceModel.bezelHighlightColor
 
+        // 创建镂空路径：外边框 - 内部屏幕区域
+        let outerPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+        let innerPath = NSBezierPath(roundedRect: screenRect, xRadius: screenCornerRadius, yRadius: screenCornerRadius)
+
+        // 使用 even-odd 填充规则创建镂空效果
+        outerPath.append(innerPath)
+        outerPath.windingRule = .evenOdd
+
         bezelLayer.fillColor = baseColor.cgColor
-        bezelLayer.path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).cgPath
+        bezelLayer.path = outerPath.cgPath
+        bezelLayer.fillRule = .evenOdd
         bezelLayer.strokeColor = highlightColor.withAlphaComponent(0.1).cgColor
         bezelLayer.lineWidth = 0.5
     }
