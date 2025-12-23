@@ -68,8 +68,6 @@
 
 // MARK: - Layout
 "layout.sideBySide" = "Side by Side";
-"layout.topBottom" = "Top & Bottom";
-"layout.single" = "Single";
 
 // MARK: - Theme
 "theme.system" = "Follow System";
@@ -112,9 +110,9 @@
 "prefs.appearance.backgroundOpacity" = "Background Opacity";
 
 // MARK: - Preferences - Layout
-"prefs.layout.default" = "Default Layout";
-"prefs.layout.sideBySide" = "Side by Side";
-"prefs.layout.topBottom" = "Top & Bottom";
+"prefs.layout.devicePosition" = "Device Position";
+"prefs.layout.iosOnLeft" = "Left iOS | Right Android";
+"prefs.layout.androidOnLeft" = "Left Android | Right iOS";
 
 // MARK: - Preferences - Connection
 "prefs.connection.autoReconnect" = "Auto Reconnect";
@@ -169,7 +167,10 @@
 
 // MARK: - iOS Device
 "ios.hint.trust" = "Please tap \"Trust This Computer\" on your device";
-"ios.hint.occupied" = "Device may be occupied by %@, please close it and try again";
+"ios.hint.occupied" = "Device is occupied by %@, please close it and try again";
+"ios.hint.occupiedUnknown" = "Device is occupied by another app, please close it and try again";
+"ios.hint.locked" = "Device is locked/sleeping, please unlock and try again";
+"ios.hint.otherApp" = "another app";
 
 // MARK: - Errors
 "error.connectionFailed" = "Connection failed: %@";
@@ -184,12 +185,8 @@
 // MARK: - Toolbar
 "toolbar.refresh" = "Refresh";
 "toolbar.refreshing" = "Refreshing...";
-"toolbar.layout" = "Layout";
 "toolbar.swap" = "Swap";
 "toolbar.preferences" = "Preferences";
-"toolbar.background" = "Background";
-"toolbar.sideBySide" = "Side by Side";
-"toolbar.topBottom" = "Top & Bottom";
 "toolbar.swap.tooltip" = "Swap device positions";
 "toolbar.refresh.tooltip" = "Refresh device list";
 "toolbar.preferences.tooltip" = "Preferences";

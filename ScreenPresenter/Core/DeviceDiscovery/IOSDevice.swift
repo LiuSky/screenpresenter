@@ -71,6 +71,21 @@ struct IOSDevice: Identifiable, Hashable {
         insight?.systemVersion
     }
 
+    /// 是否处于锁屏/息屏状态
+    var isLocked: Bool {
+        insight?.isLocked ?? false
+    }
+
+    /// 是否被其他应用占用
+    var isOccupied: Bool {
+        insight?.isOccupied ?? false
+    }
+
+    /// 是否可以立即开始捕获（未锁屏且未被占用）
+    var isReadyForCapture: Bool {
+        !isLocked && !isOccupied
+    }
+
     /// 连接类型枚举
     enum ConnectionType: String {
         case usb = "USB"
@@ -122,12 +137,6 @@ struct IOSDevice: Identifiable, Hashable {
             return nil
         }
 
-        // 检查设备是否真正连接（不是缓存的设备）
-        guard !captureDevice.isSuspended else {
-            AppLogger.device.warning("设备处于暂停状态（可能需要信任或解锁）: \(rawName)")
-            return nil
-        }
-
         // 检查是否是 iOS 设备（通过模型ID判断）
         // 注意：muxed 设备的 modelID 可能是 "iOS Device" 而不是具体型号
         let isIOSDevice = modelID.hasPrefix("iPhone") ||
@@ -156,19 +165,20 @@ struct IOSDevice: Identifiable, Hashable {
         // 清理设备名称，去掉系统添加的后缀
         let displayName = cleanDeviceName(rawName)
 
-        // 获取 MobileDevice 增强信息（不影响主流程）
+        // 获取设备状态（使用 AVFoundation 检测）
         let insightService = DeviceInsightService.shared
-        let insight = insightService.getDeviceInsight(for: captureDevice.uniqueID)
+        let insight = insightService.getDeviceInsight(for: captureDevice)
         let userPrompt = insightService.getUserPrompt(for: insight)
 
-        // 记录增强信息
-        if insightService.isMobileDeviceAvailable {
-            AppLogger.device.info(
-                "发现 iOS 设备: \(insight.deviceName), 模型: \(insight.modelName), iOS: \(insight.systemVersion)"
-            )
-        } else {
-            AppLogger.device.info("发现 iOS 设备: \(displayName), 模型: \(modelID)")
+        // 记录设备信息和状态
+        var logMessage = "发现 iOS 设备: \(insight.deviceName), 模型: \(insight.modelName)"
+        if insight.isLocked {
+            logMessage += " [锁屏/息屏]"
         }
+        if insight.isOccupied {
+            logMessage += " [被占用]"
+        }
+        AppLogger.device.info("\(logMessage)")
 
         // 记录用户提示
         if let prompt = userPrompt {

@@ -27,11 +27,18 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     /// 是否支持音频
     override var supportsAudio: Bool { true }
 
-    /// 最新的 CVPixelBuffer 存储
+    /// 最新的 CVPixelBuffer 存储（需要线程同步）
     private var _latestPixelBuffer: CVPixelBuffer?
 
-    /// 最新的 CVPixelBuffer（供渲染使用）
-    override var latestPixelBuffer: CVPixelBuffer? { _latestPixelBuffer }
+    /// 用于保护 _latestPixelBuffer 的读写锁
+    private let pixelBufferLock = NSLock()
+
+    /// 最新的 CVPixelBuffer（供渲染使用，线程安全）
+    override var latestPixelBuffer: CVPixelBuffer? {
+        pixelBufferLock.lock()
+        defer { pixelBufferLock.unlock() }
+        return _latestPixelBuffer
+    }
 
     // MARK: - 私有属性
 
@@ -106,7 +113,12 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         captureSession = nil
         videoOutput = nil
         videoDelegate = nil
+
+        pixelBufferLock.lock()
         _latestPixelBuffer = nil
+        pixelBufferLock.unlock()
+
+        hasReceivedFirstFrame = false
 
         updateState(.disconnected)
     }
@@ -254,19 +266,17 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         }
         session.addOutput(videoOutput)
 
-        // 获取视频尺寸
-        let formatDescription = captureDevice.activeFormat.formatDescription
-        let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
-        updateCaptureSize(CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height)))
-
         captureSession = session
         self.videoOutput = videoOutput
         videoDelegate = delegate
 
-        AppLogger.capture.info("iOS 捕获会话已配置: \(iosDevice.name), 分辨率: \(dimensions.width)x\(dimensions.height)")
+        AppLogger.capture.info("iOS 捕获会话已配置: \(iosDevice.name)")
     }
 
     // MARK: - 帧处理
+
+    /// 是否已获取视频尺寸
+    private var hasReceivedFirstFrame = false
 
     private func handleVideoSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
         guard isCapturingFlag else { return }
@@ -274,8 +284,20 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         // 获取 CVPixelBuffer
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // 更新最新帧
+        // 从第一帧获取视频尺寸
+        if !hasReceivedFirstFrame {
+            hasReceivedFirstFrame = true
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
+            let size = CGSize(width: CGFloat(width), height: CGFloat(height))
+            updateCaptureSize(size)
+            AppLogger.capture.info("iOS 捕获分辨率: \(width)x\(height)")
+        }
+
+        // 更新最新帧（线程安全）
+        pixelBufferLock.lock()
         _latestPixelBuffer = pixelBuffer
+        pixelBufferLock.unlock()
 
         // 创建 CapturedFrame 并发送
         let frame = CapturedFrame(sourceID: id, sampleBuffer: sampleBuffer)

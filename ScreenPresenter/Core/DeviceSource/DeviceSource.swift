@@ -271,7 +271,13 @@ class BaseDeviceSource: NSObject, DeviceSource {
 
     /// 更新捕获尺寸
     func updateCaptureSize(_ size: CGSize) {
+        guard captureSize != size else { return }
         captureSize = size
+
+        // 通知 UI 刷新以更新 aspectRatio
+        DispatchQueue.main.async {
+            AppState.shared.stateChangedPublisher.send()
+        }
     }
 
     // MARK: - Frame Handling

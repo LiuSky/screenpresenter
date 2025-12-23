@@ -14,11 +14,13 @@
 //
 
 import AppKit
+import AVFoundation
 import Foundation
 
 // MARK: - 设备信息结构
 
-/// iOS 设备详细信息（来自 MobileDevice.framework）
+/// iOS 设备详细信息
+/// 整合 AVFoundation 状态检测和 MobileDevice.framework 增强信息
 struct IOSDeviceInsight {
     /// 设备 UDID
     let udid: String
@@ -44,6 +46,9 @@ struct IOSDeviceInsight {
     /// 占用状态描述
     let occupiedBy: String?
 
+    /// 是否处于锁屏/息屏状态（通过 AVCaptureDevice.isSuspended 检测）
+    let isLocked: Bool
+
     /// 连接类型（USB/WiFi）
     let connectionType: ConnectionType
 
@@ -54,7 +59,13 @@ struct IOSDeviceInsight {
     }
 
     /// 降级结果（当 MobileDevice 不可用时使用）
-    static func degraded(udid: String, reason: String) -> IOSDeviceInsight {
+    static func degraded(
+        udid: String,
+        reason: String,
+        isLocked: Bool = false,
+        isOccupied: Bool = false,
+        occupiedBy: String? = nil
+    ) -> IOSDeviceInsight {
         AppLogger.device.warning("设备信息降级: \(reason)")
         return IOSDeviceInsight(
             udid: udid,
@@ -63,8 +74,9 @@ struct IOSDeviceInsight {
             modelName: L10n.deviceInfo.unknownModel,
             systemVersion: L10n.deviceInfo.unknownVersion,
             isTrusted: true, // 假设已信任，让主流程继续
-            isOccupied: false,
-            occupiedBy: nil,
+            isOccupied: isOccupied,
+            occupiedBy: occupiedBy,
+            isLocked: isLocked,
             connectionType: .usb
         )
     }
@@ -118,20 +130,63 @@ final class DeviceInsightService {
 
     // MARK: - 公开方法
 
-    /// 获取设备详细信息
+    /// 获取设备详细信息（使用 AVCaptureDevice 状态检测）
+    /// - Parameters:
+    ///   - captureDevice: AVCaptureDevice 实例，用于检测设备状态
+    /// - Returns: 设备详细信息（整合 AVFoundation 状态和 MobileDevice 增强信息）
+    func getDeviceInsight(for captureDevice: AVCaptureDevice) -> IOSDeviceInsight {
+        let udid = captureDevice.uniqueID
+        let deviceName = captureDevice.localizedName
+        let modelID = captureDevice.modelID
+
+        // 1. 检测 AVFoundation 层面的状态
+        let isLocked = captureDevice.isSuspended
+        let isOccupiedByOther = captureDevice.isInUseByAnotherApplication
+        let occupiedBy = isOccupiedByOther ? detectOccupyingApp() : nil
+
+        // 2. 尝试从 MobileDevice 获取增强信息
+        if isMobileDeviceAvailable {
+            do {
+                return try fetchDeviceInfo(
+                    udid: udid,
+                    deviceName: deviceName,
+                    modelID: modelID,
+                    isLocked: isLocked,
+                    isOccupied: isOccupiedByOther,
+                    occupiedBy: occupiedBy
+                )
+            } catch {
+                AppLogger.device.warning("MobileDevice 获取信息失败: \(error.localizedDescription)")
+            }
+        }
+
+        // 3. 降级：使用 AVFoundation 提供的基础信息
+        let modelName = Self.modelName(for: modelID)
+        return IOSDeviceInsight(
+            udid: udid,
+            deviceName: deviceName,
+            modelIdentifier: modelID,
+            modelName: modelName,
+            systemVersion: L10n.deviceInfo.unknown,
+            isTrusted: true, // AVFoundation 无法检测，假设已信任
+            isOccupied: isOccupiedByOther,
+            occupiedBy: occupiedBy,
+            isLocked: isLocked,
+            connectionType: .usb
+        )
+    }
+
+    /// 获取设备详细信息（简化版，仅 UDID）
     /// - Parameter udid: 设备 UDID（从 AVFoundation 获取的设备 ID）
     /// - Returns: 设备详细信息（可能是降级结果）
     func getDeviceInsight(for udid: String) -> IOSDeviceInsight {
-        guard isMobileDeviceAvailable else {
-            return .degraded(udid: udid, reason: initializationError ?? "MobileDevice 不可用")
+        // 尝试通过 UDID 获取 AVCaptureDevice
+        if let captureDevice = AVCaptureDevice(uniqueID: udid) {
+            return getDeviceInsight(for: captureDevice)
         }
 
-        // 尝试获取设备信息
-        do {
-            return try fetchDeviceInfo(udid: udid)
-        } catch {
-            return .degraded(udid: udid, reason: error.localizedDescription)
-        }
+        // 无法获取设备，返回降级结果
+        return .degraded(udid: udid, reason: "无法获取 AVCaptureDevice")
     }
 
     /// 检查设备是否已信任
@@ -146,38 +201,50 @@ final class DeviceInsightService {
     }
 
     /// 检查设备是否被占用
-    /// - Parameter udid: 设备 UDID
+    /// - Parameter captureDevice: AVCaptureDevice 实例
     /// - Returns: (是否被占用, 占用者描述)
-    func checkDeviceOccupation(udid: String) -> (isOccupied: Bool, occupiedBy: String?) {
-        guard isMobileDeviceAvailable else { return (false, nil) }
+    func checkDeviceOccupation(captureDevice: AVCaptureDevice) -> (isOccupied: Bool, occupiedBy: String?) {
+        if captureDevice.isInUseByAnotherApplication {
+            let occupier = detectOccupyingApp()
+            return (true, occupier)
+        }
+        return (false, nil)
+    }
 
-        // 检查是否有其他进程正在使用设备
+    /// 检测可能占用设备的应用
+    private func detectOccupyingApp() -> String? {
         // 常见占用者：QuickTime Player、Xcode、Instruments
-
-        // 简化实现：检查是否有相关进程在运行
         let occupyingProcesses = ["QuickTime Player", "Xcode", "Instruments"]
         let workspace = NSWorkspace.shared
 
         for processName in occupyingProcesses {
             if workspace.runningApplications.contains(where: { $0.localizedName == processName }) {
-                // 注意：这只是检查进程是否运行，不代表一定占用了当前设备
                 AppLogger.device.info("检测到可能占用设备的应用: \(processName)")
+                return processName
             }
         }
 
-        return (false, nil)
+        return L10n.ios.hint.otherApp
     }
 
     /// 获取用户提示文案
     /// - Parameter insight: 设备信息
     /// - Returns: 用户提示文案（如果有问题需要提示）
     func getUserPrompt(for insight: IOSDeviceInsight) -> String? {
-        if !insight.isTrusted {
-            return L10n.ios.hint.trust
+        // 优先级：锁屏 > 占用 > 未信任
+        if insight.isLocked {
+            return L10n.ios.hint.locked
         }
 
-        if insight.isOccupied, let occupiedBy = insight.occupiedBy {
-            return L10n.ios.hint.occupied(occupiedBy)
+        if insight.isOccupied {
+            if let occupiedBy = insight.occupiedBy {
+                return L10n.ios.hint.occupied(occupiedBy)
+            }
+            return L10n.ios.hint.occupiedUnknown
+        }
+
+        if !insight.isTrusted {
+            return L10n.ios.hint.trust
         }
 
         return nil
@@ -185,25 +252,32 @@ final class DeviceInsightService {
 
     // MARK: - 私有方法
 
-    private func fetchDeviceInfo(udid: String) throws -> IOSDeviceInsight {
-        // 实际的 MobileDevice API 调用
-        // 这里提供简化实现，返回基本信息
+    private func fetchDeviceInfo(
+        udid: String,
+        deviceName: String,
+        modelID: String,
+        isLocked: Bool,
+        isOccupied: Bool,
+        occupiedBy: String?
+    ) throws -> IOSDeviceInsight {
+        // MobileDevice.framework 已加载，但 API 调用较复杂
+        // 当前实现：整合 AVFoundation 已检测到的状态，加上型号映射
 
-        // 由于 MobileDevice.framework 是私有框架，API 不稳定
-        // 这里使用降级策略，返回从 AVFoundation 能获取的信息
+        AppLogger.device.info("获取设备信息: \(udid), 锁屏: \(isLocked), 占用: \(isOccupied)")
 
-        AppLogger.device.info("获取设备信息: \(udid)")
+        // 使用型号映射获取友好名称
+        let modelName = Self.modelName(for: modelID)
 
-        // 简化实现：返回基本信息
         return IOSDeviceInsight(
             udid: udid,
-            deviceName: "iOS 设备",
-            modelIdentifier: "unknown",
-            modelName: "iPhone/iPad",
-            systemVersion: L10n.deviceInfo.unknown,
-            isTrusted: true,
-            isOccupied: false,
-            occupiedBy: nil,
+            deviceName: deviceName,
+            modelIdentifier: modelID,
+            modelName: modelName,
+            systemVersion: L10n.deviceInfo.unknown, // MobileDevice API 可获取，暂用未知
+            isTrusted: true, // MobileDevice API 可检测，暂假设已信任
+            isOccupied: isOccupied,
+            occupiedBy: occupiedBy,
+            isLocked: isLocked,
             connectionType: .usb
         )
     }

@@ -79,35 +79,3 @@ struct CapturedFrame: Identifiable {
         return context.createCGImage(ciImage, from: ciImage.extent)
     }
 }
-
-// MARK: - 分屏布局
-
-/// 分屏布局枚举（用于 UI 选择器）
-enum SplitLayout: String, CaseIterable, Identifiable {
-    case sideBySide
-    case topBottom
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .sideBySide: L10n.layout.sideBySide
-        case .topBottom: L10n.layout.topBottom
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .sideBySide: "rectangle.split.2x1"
-        case .topBottom: "rectangle.split.1x2"
-        }
-    }
-
-    /// 转换为 LayoutMode
-    var layoutMode: LayoutMode {
-        switch self {
-        case .sideBySide: .sideBySide
-        case .topBottom: .topBottom
-        }
-    }
-}

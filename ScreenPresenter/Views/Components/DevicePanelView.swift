@@ -47,6 +47,9 @@ final class DevicePanelView: NSView {
     /// 设备边框视图
     private var bezelView: DeviceBezelView!
 
+    /// Metal 渲染视图（显示设备画面，嵌入到 screenContentView 中）
+    private(set) var renderView: SingleDeviceRenderView!
+
     /// 状态内容容器（显示在边框屏幕区域内）
     private var statusContainerView: NSView!
 
@@ -140,10 +143,17 @@ final class DevicePanelView: NSView {
             // 填满父视图，bezelView 内部会根据 aspectRatio 自动调整设备尺寸
             make.edges.equalToSuperview()
         }
+
+        // 添加 Metal 渲染视图到 screenContentView（画面会跟随 bezel 动画）
+        renderView = SingleDeviceRenderView()
+        bezelView.screenContentView.addSubview(renderView)
+        renderView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
     }
 
     private func setupTrackingArea() {
-        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect]
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
         addTrackingArea(trackingArea!)
     }
@@ -155,21 +165,54 @@ final class DevicePanelView: NSView {
             removeTrackingArea(oldTrackingArea)
         }
 
-        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect]
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
         addTrackingArea(trackingArea!)
     }
 
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
-        isMouseInside = true
-        updateCaptureBarVisibility()
+        checkMouseInCaptureZone(with: event)
     }
 
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
         isMouseInside = false
         updateCaptureBarVisibility()
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        checkMouseInCaptureZone(with: event)
+    }
+
+    /// 检查鼠标是否在 captureBar 显示区域内（screenContentView 上方 1/3）
+    private func checkMouseInCaptureZone(with event: NSEvent) {
+        let locationInView = convert(event.locationInWindow, from: nil)
+        let screen = screenFrame
+
+        guard screen.width > 0, screen.height > 0 else {
+            isMouseInside = false
+            updateCaptureBarVisibility()
+            return
+        }
+
+        // 计算上方 1/3 区域
+        let topThirdHeight = screen.height / 3
+        let captureZone = CGRect(
+            x: screen.minX,
+            y: screen.maxY - topThirdHeight,
+            width: screen.width,
+            height: topThirdHeight
+        )
+
+        let wasInside = isMouseInside
+        isMouseInside = captureZone.contains(locationInView)
+
+        // 只在状态改变时更新
+        if wasInside != isMouseInside {
+            updateCaptureBarVisibility()
+        }
     }
 
     private func updateCaptureBarVisibility() {
@@ -374,6 +417,8 @@ final class DevicePanelView: NSView {
         // 未连接时使用通用边框
         configureBezel(for: platform, deviceName: nil)
 
+        // 隐藏渲染视图，显示状态容器
+        renderView.isHidden = true
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
 
@@ -406,6 +451,8 @@ final class DevicePanelView: NSView {
         // 根据设备名称配置对应的边框
         configureBezel(for: platform, deviceName: deviceName)
 
+        // 隐藏渲染视图，显示状态容器
+        renderView.isHidden = true
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
 
@@ -450,6 +497,8 @@ final class DevicePanelView: NSView {
         // 根据设备名称和实际分辨率配置边框
         configureBezel(for: platform, deviceName: deviceName, aspectRatio: resolution)
 
+        // 显示渲染视图，隐藏状态容器
+        renderView.isHidden = false
         statusContainerView.isHidden = true
 
         // 初始隐藏 captureBarView，只有鼠标悬停时才显示
@@ -482,6 +531,8 @@ final class DevicePanelView: NSView {
         // 工具链缺失时使用通用 Android 边框
         configureBezel(for: .android, deviceName: nil)
 
+        // 隐藏渲染视图，显示状态容器
+        renderView.isHidden = true
         statusContainerView.isHidden = false
         captureBarView.isHidden = true
 
@@ -523,6 +574,19 @@ final class DevicePanelView: NSView {
     var screenFrame: CGRect {
         let bezelScreenFrame = bezelView.screenFrame
         return bezelView.convert(bezelScreenFrame, to: self)
+    }
+
+    /// 获取设备的宽高比（宽度/高度）
+    /// 返回值保证 > 0，避免布局约束问题
+    var deviceAspectRatio: CGFloat {
+        let ratio = bezelView.aspectRatio
+        // 确保返回有效的宽高比，避免除零或无效约束
+        return ratio > 0.1 ? ratio : 0.46 // 默认使用 iPhone 的宽高比
+    }
+
+    /// 获取屏幕圆角半径（用于 Metal 渲染遮罩）
+    var screenCornerRadius: CGFloat {
+        bezelView.screenCornerRadius
     }
 
     // MARK: - 私有方法

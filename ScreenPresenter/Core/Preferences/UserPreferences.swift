@@ -22,7 +22,7 @@ final class UserPreferences {
     // MARK: - Keys
 
     private enum Keys {
-        static let defaultLayout = "defaultLayout"
+        static let iosOnLeft = "iosOnLeft"
         static let autoReconnect = "autoReconnect"
         static let reconnectDelay = "reconnectDelay"
         static let maxReconnectAttempts = "maxReconnectAttempts"
@@ -40,18 +40,17 @@ final class UserPreferences {
 
     // MARK: - Layout Settings
 
-    /// 默认布局样式
-    var defaultLayout: LayoutMode {
+    /// iOS 设备是否在左侧（默认 true：左 iOS | 右 Android）
+    var iosOnLeft: Bool {
         get {
-            guard
-                let raw = defaults.string(forKey: Keys.defaultLayout),
-                let mode = LayoutMode(rawValue: raw) else {
-                return .sideBySide
+            // 如果从未设置过，默认为 true
+            if defaults.object(forKey: Keys.iosOnLeft) == nil {
+                return true
             }
-            return mode
+            return defaults.bool(forKey: Keys.iosOnLeft)
         }
         set {
-            defaults.set(newValue.rawValue, forKey: Keys.defaultLayout)
+            defaults.set(newValue, forKey: Keys.iosOnLeft)
         }
     }
 

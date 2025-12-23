@@ -265,6 +265,16 @@ final class MetalRenderView: NSView {
         renderer?.secondaryScreenFrame = frame
     }
 
+    /// 设置主屏幕圆角半径（用于渲染左侧/上方设备）
+    func setPrimaryScreenCornerRadius(_ radius: CGFloat) {
+        renderer?.primaryScreenCornerRadius = radius
+    }
+
+    /// 设置次屏幕圆角半径（用于渲染右侧/下方设备）
+    func setSecondaryScreenCornerRadius(_ radius: CGFloat) {
+        renderer?.secondaryScreenCornerRadius = radius
+    }
+
     // MARK: - 统计
 
     /// 左侧帧率

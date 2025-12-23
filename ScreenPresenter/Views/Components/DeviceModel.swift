@@ -202,6 +202,13 @@ extension DeviceModel {
         }
     }
 
+    /// 默认屏幕内容区域的宽高比 (宽度 / 高度)
+    /// 这是用于 DeviceBezelView 的主要参数，确保屏幕区域与视频宽高比一致
+    /// 数据来源: screensizes.app
+    var defaultScreenAspectRatio: CGFloat {
+        defaultAspectRatio
+    }
+
     /// 默认宽高比 (宽度 / 高度)
     /// 数据来源: screensizes.app
     var defaultAspectRatio: CGFloat {

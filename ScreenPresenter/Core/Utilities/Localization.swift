@@ -232,8 +232,6 @@ enum L10n {
 
     enum layout {
         static var sideBySide: String { "layout.sideBySide".localized }
-        static var topBottom: String { "layout.topBottom".localized }
-        static var single: String { "layout.single".localized }
     }
 
     // MARK: - Theme
@@ -290,9 +288,9 @@ enum L10n {
         }
 
         enum layoutPref {
-            static var defaultLayout: String { "prefs.layout.default".localized }
-            static var sideBySide: String { "prefs.layout.sideBySide".localized }
-            static var topBottom: String { "prefs.layout.topBottom".localized }
+            static var devicePosition: String { "prefs.layout.devicePosition".localized }
+            static var iosOnLeft: String { "prefs.layout.iosOnLeft".localized }
+            static var androidOnLeft: String { "prefs.layout.androidOnLeft".localized }
         }
 
         enum connectionPref {
@@ -382,6 +380,9 @@ enum L10n {
         enum hint {
             static var trust: String { "ios.hint.trust".localized }
             static func occupied(_ app: String) -> String { "ios.hint.occupied".localized(app) }
+            static var occupiedUnknown: String { "ios.hint.occupiedUnknown".localized }
+            static var locked: String { "ios.hint.locked".localized }
+            static var otherApp: String { "ios.hint.otherApp".localized }
         }
     }
 
@@ -405,12 +406,8 @@ enum L10n {
     enum toolbar {
         static var refresh: String { "toolbar.refresh".localized }
         static var refreshing: String { "toolbar.refreshing".localized }
-        static var layout: String { "toolbar.layout".localized }
         static var swap: String { "toolbar.swap".localized }
         static var preferences: String { "toolbar.preferences".localized }
-        static var background: String { "toolbar.background".localized }
-        static var sideBySide: String { "toolbar.sideBySide".localized }
-        static var topBottom: String { "toolbar.topBottom".localized }
         static var swapTooltip: String { "toolbar.swap.tooltip".localized }
         static var refreshTooltip: String { "toolbar.refresh.tooltip".localized }
         static var preferencesTooltip: String { "toolbar.preferences.tooltip".localized }

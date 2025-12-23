@@ -19,20 +19,18 @@ final class MainViewController: NSViewController {
 
     private var toolbarView: ToolbarView!
     private var previewContainerView: NSView!
-    private var renderView: MetalRenderView!
 
     // MARK: - 设备面板
 
-    /// iOS 面板（默认在左侧/上方）
+    /// iOS 面板（默认在左侧）
     private var iosPanelView: DevicePanelView!
-    /// Android 面板（默认在右侧/下方）
+    /// Android 面板（默认在右侧）
     private var androidPanelView: DevicePanelView!
     private var dividerView: NSBox!
 
     // MARK: - 状态
 
     private var cancellables = Set<AnyCancellable>()
-    private var currentLayout: LayoutMode = .sideBySide
     private var isSwapped: Bool = false
 
     // MARK: - 生命周期
@@ -46,19 +44,17 @@ final class MainViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // 从偏好设置读取默认设备位置
+        isSwapped = !UserPreferences.shared.iosOnLeft
+
         setupUI()
         setupBindings()
         startRendering()
-
-        // 延迟初始化渲染区域（等待初始布局完成）
-        DispatchQueue.main.async { [weak self] in
-            self?.updateRenderScreenFrames()
-        }
     }
 
     override func viewWillDisappear() {
         super.viewWillDisappear()
-        renderView.stopRendering()
+        stopRendering()
     }
 
     // MARK: - UI 设置
@@ -73,6 +69,7 @@ final class MainViewController: NSViewController {
     private func setupToolbar() {
         toolbarView = ToolbarView()
         toolbarView.delegate = self
+        toolbarView.setSwapState(isSwapped)
         view.addSubview(toolbarView)
         toolbarView.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
@@ -88,12 +85,6 @@ final class MainViewController: NSViewController {
         previewContainerView.snp.makeConstraints { make in
             make.top.equalTo(toolbarView.snp.bottom)
             make.leading.trailing.bottom.equalToSuperview()
-        }
-
-        renderView = MetalRenderView()
-        previewContainerView.addSubview(renderView)
-        renderView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
         }
     }
 
@@ -122,57 +113,31 @@ final class MainViewController: NSViewController {
         iosPanelView.snp.removeConstraints()
         dividerView.snp.removeConstraints()
 
-        // 根据 isSwapped 决定哪个面板在主位置（左/上）
-        // 默认: iOS 在左侧，Android 在右侧
-        let primaryPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let secondaryPanel = isSwapped ? iosPanelView! : androidPanelView!
+        // 根据 isSwapped 决定哪个面板在左侧
+        // 默认 (isSwapped=false): iOS 在左侧，Android 在右侧
+        // 交换后 (isSwapped=true): Android 在左侧，iOS 在右侧
+        let leftPanel = isSwapped ? androidPanelView! : iosPanelView!
+        let rightPanel = isSwapped ? iosPanelView! : androidPanelView!
 
-        switch currentLayout {
-        case .sideBySide:
-            primaryPanel.snp.makeConstraints { make in
-                make.top.leading.bottom.equalToSuperview()
-                make.width.equalToSuperview().multipliedBy(0.5).offset(-0.5)
-            }
+        let dividerWidth: CGFloat = 1
 
-            dividerView.snp.makeConstraints { make in
-                make.centerX.top.bottom.equalToSuperview()
-                make.width.equalTo(1)
-            }
+        // 左右并排布局
+        leftPanel.snp.makeConstraints { make in
+            make.top.bottom.equalToSuperview()
+            make.leading.equalToSuperview()
+            make.width.equalToSuperview().multipliedBy(0.5).offset(-dividerWidth / 2)
+        }
 
-            secondaryPanel.snp.makeConstraints { make in
-                make.top.trailing.bottom.equalToSuperview()
-                make.width.equalToSuperview().multipliedBy(0.5).offset(-0.5)
-            }
+        dividerView.snp.makeConstraints { make in
+            make.leading.equalTo(leftPanel.snp.trailing)
+            make.top.bottom.equalToSuperview()
+            make.width.equalTo(dividerWidth)
+        }
 
-            secondaryPanel.isHidden = false
-            dividerView.isHidden = false
-
-        case .topBottom:
-            primaryPanel.snp.makeConstraints { make in
-                make.top.leading.trailing.equalToSuperview()
-                make.height.equalToSuperview().multipliedBy(0.5).offset(-0.5)
-            }
-
-            dividerView.snp.makeConstraints { make in
-                make.centerY.leading.trailing.equalToSuperview()
-                make.height.equalTo(1)
-            }
-
-            secondaryPanel.snp.makeConstraints { make in
-                make.bottom.leading.trailing.equalToSuperview()
-                make.height.equalToSuperview().multipliedBy(0.5).offset(-0.5)
-            }
-
-            secondaryPanel.isHidden = false
-            dividerView.isHidden = false
-
-        case .single:
-            primaryPanel.snp.makeConstraints { make in
-                make.edges.equalToSuperview()
-            }
-
-            secondaryPanel.isHidden = true
-            dividerView.isHidden = true
+        rightPanel.snp.makeConstraints { make in
+            make.top.bottom.equalToSuperview()
+            make.leading.equalTo(dividerView.snp.trailing)
+            make.trailing.equalToSuperview()
         }
 
         // 动画
@@ -180,27 +145,6 @@ final class MainViewController: NSViewController {
             context.duration = 0.3
             context.allowsImplicitAnimation = true
             previewContainerView.layoutSubtreeIfNeeded()
-        } completionHandler: { [weak self] in
-            // 布局完成后更新渲染区域
-            self?.updateRenderScreenFrames()
-        }
-    }
-
-    /// 更新渲染器的屏幕区域
-    private func updateRenderScreenFrames() {
-        // 默认: iOS 在左侧，Android 在右侧
-        let primaryPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let secondaryPanel = isSwapped ? iosPanelView! : androidPanelView!
-
-        // 获取面板的屏幕区域并转换为 renderView 的坐标系
-        let primaryFrame = primaryPanel.convert(primaryPanel.screenFrame, to: renderView)
-        renderView.setPrimaryScreenFrame(primaryFrame)
-
-        if currentLayout != .single {
-            let secondaryFrame = secondaryPanel.convert(secondaryPanel.screenFrame, to: renderView)
-            renderView.setSecondaryScreenFrame(secondaryFrame)
-        } else {
-            renderView.setSecondaryScreenFrame(.zero)
         }
     }
 
@@ -214,9 +158,8 @@ final class MainViewController: NSViewController {
             }
             .store(in: &cancellables)
 
-        renderView.onRenderFrame = { [weak self] in
-            self?.updateTextures()
-        }
+        // 注意：纹理更新由数据源的帧回调驱动，而不是渲染请求
+        // 这在 updateIOSPanel/updateAndroidPanel 中设置
 
         // 监听背景色变化
         NotificationCenter.default.addObserver(
@@ -234,50 +177,53 @@ final class MainViewController: NSViewController {
     // MARK: - 渲染
 
     private func startRendering() {
-        renderView.startRendering()
+        iosPanelView.renderView.startRendering()
+        androidPanelView.renderView.startRendering()
     }
 
-    private func updateTextures() {
-        // 默认: iOS 在左侧，Android 在右侧
-        if let pixelBuffer = AppState.shared.iosDeviceSource?.latestPixelBuffer {
-            if isSwapped {
-                renderView.updateRightTexture(from: pixelBuffer)
-            } else {
-                renderView.updateLeftTexture(from: pixelBuffer)
-            }
-        }
-
-        if let pixelBuffer = AppState.shared.androidDeviceSource?.latestPixelBuffer {
-            if isSwapped {
-                renderView.updateLeftTexture(from: pixelBuffer)
-            } else {
-                renderView.updateRightTexture(from: pixelBuffer)
-            }
-        }
+    private func stopRendering() {
+        iosPanelView.renderView.stopRendering()
+        androidPanelView.renderView.stopRendering()
     }
 
     // MARK: - UI 更新
 
+    /// 记录上次的 aspectRatio，用于检测变化
+    private var lastIOSAspectRatio: CGFloat = 0
+    private var lastAndroidAspectRatio: CGFloat = 0
+
     private func updateUI() {
+        // 先记录旧的 aspectRatio
+        let oldIOSRatio = iosPanelView.deviceAspectRatio
+        let oldAndroidRatio = androidPanelView.deviceAspectRatio
+
+        // 更新面板内容
         updateAndroidPanel(androidPanelView)
         updateIOSPanel(iosPanelView)
+
+        // 检查 aspectRatio 是否变化，如果变化则重新布局
+        let newIOSRatio = iosPanelView.deviceAspectRatio
+        let newAndroidRatio = androidPanelView.deviceAspectRatio
+
+        if abs(newIOSRatio - oldIOSRatio) > 0.01 || abs(newAndroidRatio - oldAndroidRatio) > 0.01 {
+            updatePanelLayout()
+        }
     }
 
     private func updateAndroidPanel(_ panel: DevicePanelView) {
         let appState = AppState.shared
         let scrcpyReady = appState.toolchainManager.scrcpyStatus.isReady
-        // Android texture 位置: 默认在右侧，交换后在左侧
-        let androidFPS = isSwapped ? renderView.leftFPS : renderView.rightFPS
 
         if !scrcpyReady {
             panel.showToolchainMissing(toolName: "scrcpy") { [weak self] in
                 self?.installScrcpy()
             }
+            panel.renderView.clearTexture()
         } else if appState.androidCapturing {
             panel.showCapturing(
                 deviceName: appState.androidDeviceName ?? "Android",
                 platform: .android,
-                fps: androidFPS,
+                fps: panel.renderView.fps,
                 resolution: appState.androidDeviceSource?.captureSize ?? .zero,
                 onStop: { [weak self] in
                     self?.stopAndroidCapture()
@@ -291,27 +237,35 @@ final class MainViewController: NSViewController {
                     self?.startAndroidCapture()
                 }
             )
+            panel.renderView.clearTexture()
         } else {
             panel.showDisconnected(platform: .android, connectionGuide: L10n.overlayUI.connectAndroid)
+            panel.renderView.clearTexture()
         }
     }
 
     private func updateIOSPanel(_ panel: DevicePanelView) {
         let appState = AppState.shared
-        // iOS texture 位置: 默认在左侧，交换后在右侧
-        let iosFPS = isSwapped ? renderView.rightFPS : renderView.leftFPS
 
         if appState.iosCapturing {
+            // 设置帧回调，每个新帧到来时更新纹理
+            appState.iosDeviceSource?.onFrame = { [weak panel] pixelBuffer in
+                panel?.renderView.updateTexture(from: pixelBuffer)
+            }
+
             panel.showCapturing(
                 deviceName: appState.iosDeviceName ?? "iPhone",
                 platform: .ios,
-                fps: iosFPS,
+                fps: panel.renderView.fps,
                 resolution: appState.iosDeviceSource?.captureSize ?? .zero,
                 onStop: { [weak self] in
                     self?.stopIOSCapture()
                 }
             )
         } else if appState.iosConnected {
+            // 清除帧回调
+            appState.iosDeviceSource?.onFrame = nil
+
             panel.showConnected(
                 deviceName: appState.iosDeviceName ?? "iPhone",
                 platform: .ios,
@@ -320,8 +274,10 @@ final class MainViewController: NSViewController {
                     self?.startIOSCapture()
                 }
             )
+            panel.renderView.clearTexture()
         } else {
             panel.showDisconnected(platform: .ios, connectionGuide: L10n.overlayUI.connectIOS)
+            panel.renderView.clearTexture()
         }
     }
 
@@ -378,11 +334,8 @@ final class MainViewController: NSViewController {
     // MARK: - 窗口事件
 
     func handleWindowResize() {
-        renderView.needsDisplay = true
-        // 延迟更新屏幕区域，等待布局完成
-        DispatchQueue.main.async { [weak self] in
-            self?.updateRenderScreenFrames()
-        }
+        iosPanelView.needsLayout = true
+        androidPanelView.needsLayout = true
     }
 }
 
@@ -396,15 +349,8 @@ extension MainViewController: ToolbarViewDelegate {
         }
     }
 
-    func toolbarDidChangeLayout(_ layout: LayoutMode) {
-        currentLayout = layout
-        renderView.setLayoutMode(layout)
-        updatePanelLayout()
-    }
-
     func toolbarDidToggleSwap(_ swapped: Bool) {
         isSwapped = swapped
-        renderView.setSwapped(swapped)
         updatePanelLayout()
     }
 

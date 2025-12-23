@@ -5,7 +5,7 @@
 //  Created by Sun on 2025/12/22.
 //
 //  工具栏视图
-//  包含布局切换、交换、刷新、偏好设置按钮
+//  包含交换、刷新、偏好设置按钮
 //
 
 import AppKit
@@ -15,7 +15,6 @@ import SnapKit
 
 protocol ToolbarViewDelegate: AnyObject {
     func toolbarDidRequestRefresh()
-    func toolbarDidChangeLayout(_ layout: LayoutMode)
     func toolbarDidToggleSwap(_ swapped: Bool)
     func toolbarDidRequestPreferences()
 }
@@ -29,18 +28,14 @@ final class ToolbarView: NSView {
 
     // MARK: - UI 组件
 
-    private var layoutLabel: NSTextField!
-    private var layoutSegmentedControl: NSSegmentedControl!
     private var swapButton: NSButton!
     private var refreshButton: NSButton!
     private var refreshSpinner: NSProgressIndicator!
     private var preferencesButton: NSButton!
-    private var divider: NSBox!
 
     // MARK: - 状态
 
     private var isSwapped = false
-    private var currentLayout: LayoutMode = .sideBySide
     private var isRefreshing = false
 
     // MARK: - 初始化
@@ -61,33 +56,11 @@ final class ToolbarView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
-        setupLayoutSection()
         setupSwapButton()
         setupRefreshButton()
         setupPreferencesButton()
         setupDividers()
         setupConstraints()
-    }
-
-    private func setupLayoutSection() {
-        layoutLabel = NSTextField(labelWithString: L10n.toolbar.layout)
-        layoutLabel.font = NSFont.systemFont(ofSize: 11)
-        layoutLabel.textColor = .secondaryLabelColor
-        addSubview(layoutLabel)
-
-        layoutSegmentedControl = NSSegmentedControl(
-            images: [
-                NSImage(systemSymbolName: "rectangle.split.2x1", accessibilityDescription: L10n.layout.sideBySide)!,
-                NSImage(systemSymbolName: "rectangle.split.1x2", accessibilityDescription: L10n.layout.topBottom)!,
-            ],
-            trackingMode: .selectOne,
-            target: self,
-            action: #selector(layoutChanged)
-        )
-        layoutSegmentedControl.selectedSegment = 0
-        layoutSegmentedControl.setLabel(L10n.toolbar.sideBySide, forSegment: 0)
-        layoutSegmentedControl.setLabel(L10n.toolbar.topBottom, forSegment: 1)
-        addSubview(layoutSegmentedControl)
     }
 
     private func setupSwapButton() {
@@ -136,10 +109,6 @@ final class ToolbarView: NSView {
     }
 
     private func setupDividers() {
-        divider = NSBox()
-        divider.boxType = .separator
-        addSubview(divider)
-
         let bottomSeparator = NSBox()
         bottomSeparator.boxType = .separator
         addSubview(bottomSeparator)
@@ -150,25 +119,8 @@ final class ToolbarView: NSView {
     }
 
     private func setupConstraints() {
-        layoutLabel.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
-            make.centerY.equalToSuperview()
-        }
-
-        layoutSegmentedControl.snp.makeConstraints { make in
-            make.leading.equalTo(layoutLabel.snp.trailing).offset(6)
-            make.centerY.equalToSuperview()
-        }
-
-        divider.snp.makeConstraints { make in
-            make.leading.equalTo(layoutSegmentedControl.snp.trailing).offset(12)
-            make.centerY.equalToSuperview()
-            make.width.equalTo(1)
-            make.height.equalTo(20)
-        }
-
         swapButton.snp.makeConstraints { make in
-            make.leading.equalTo(divider.snp.trailing).offset(12)
+            make.leading.equalToSuperview().offset(16)
             make.centerY.equalToSuperview()
         }
 
@@ -189,16 +141,19 @@ final class ToolbarView: NSView {
 
     // MARK: - 操作
 
-    @objc private func layoutChanged() {
-        let layouts: [LayoutMode] = [.sideBySide, .topBottom]
-        currentLayout = layouts[layoutSegmentedControl.selectedSegment]
-        delegate?.toolbarDidChangeLayout(currentLayout)
-    }
-
     @objc private func swapTapped() {
         isSwapped.toggle()
+        updateSwapButtonAppearance()
         delegate?.toolbarDidToggleSwap(isSwapped)
+    }
 
+    /// 设置 swap 状态（用于外部同步或内部设置）
+    func setSwapState(_ swapped: Bool) {
+        isSwapped = swapped
+        updateSwapButtonAppearance()
+    }
+
+    private func updateSwapButtonAppearance() {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.3
             context.allowsImplicitAnimation = true

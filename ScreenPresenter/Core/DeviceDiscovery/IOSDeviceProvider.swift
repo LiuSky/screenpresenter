@@ -295,7 +295,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     }
 
     /// 刷新所有设备的 insight 信息
-    /// 检测状态变化（信任、占用等）并更新 UI
+    /// 检测状态变化（锁屏、占用等）并更新 UI
     private func refreshDeviceInsights() async {
         guard let session = discoverySession else { return }
 
@@ -306,19 +306,26 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
                 continue
             }
 
-            // 重新获取 insight
+            // 重新获取 insight（使用 AVCaptureDevice 以检测最新的锁屏/占用状态）
             let insightService = DeviceInsightService.shared
-            let newInsight = insightService.getDeviceInsight(for: captureDevice.uniqueID)
+            let newInsight = insightService.getDeviceInsight(for: captureDevice)
             let newPrompt = insightService.getUserPrompt(for: newInsight)
 
-            // 检测状态变化
+            // 检测状态变化（包括锁屏状态）
             let oldPrompt = existingDevice.userPrompt
-            if newPrompt != oldPrompt {
+            let oldIsLocked = existingDevice.isLocked
+            let newIsLocked = newInsight.isLocked
+
+            if newPrompt != oldPrompt || oldIsLocked != newIsLocked {
                 hasChanges = true
 
-                if let prompt = newPrompt {
+                if newIsLocked, !oldIsLocked {
+                    AppLogger.device.warning("设备已锁屏/息屏: \(existingDevice.displayName)")
+                } else if !newIsLocked, oldIsLocked {
+                    AppLogger.device.info("设备已解锁: \(existingDevice.displayName)")
+                } else if let prompt = newPrompt, prompt != oldPrompt {
                     AppLogger.device.warning("设备状态变化: \(existingDevice.displayName) - \(prompt)")
-                } else if oldPrompt != nil {
+                } else if oldPrompt != nil, newPrompt == nil {
                     AppLogger.device.info("设备状态恢复正常: \(existingDevice.displayName)")
                 }
             }

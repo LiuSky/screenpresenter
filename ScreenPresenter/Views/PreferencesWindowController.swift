@@ -161,14 +161,17 @@ final class PreferencesViewController: NSViewController {
 
         // 布局设置组
         let layoutGroup = createSettingsGroup(title: L10n.prefs.section.layout, icon: "rectangle.split.2x1")
-        layoutGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.layoutPref.defaultLayout) {
+        layoutGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.layoutPref.devicePosition) {
             let segmented = NSSegmentedControl(
-                labels: [L10n.prefs.layoutPref.sideBySide, L10n.prefs.layoutPref.topBottom],
+                labels: [
+                    L10n.prefs.layoutPref.iosOnLeft,
+                    L10n.prefs.layoutPref.androidOnLeft,
+                ],
                 trackingMode: .selectOne,
-                target: nil,
-                action: nil
+                target: self,
+                action: #selector(devicePositionChanged(_:))
             )
-            segmented.selectedSegment = UserPreferences.shared.defaultLayout == .sideBySide ? 0 : 1
+            segmented.selectedSegment = UserPreferences.shared.iosOnLeft ? 0 : 1
             return segmented
         })
         stackView.addArrangedSubview(layoutGroup)
@@ -684,6 +687,10 @@ final class PreferencesViewController: NSViewController {
 
         // 发送通知更新背景色
         NotificationCenter.default.post(name: .backgroundColorDidChange, object: nil)
+    }
+
+    @objc private func devicePositionChanged(_ sender: NSSegmentedControl) {
+        UserPreferences.shared.iosOnLeft = sender.selectedSegment == 0
     }
 
     @objc private func refreshToolchain() {

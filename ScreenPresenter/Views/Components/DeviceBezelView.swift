@@ -17,6 +17,12 @@ final class DeviceBezelView: NSView {
     // MARK: - 属性
 
     private(set) var deviceModel: DeviceModel = .unknown
+
+    /// 屏幕内容区域的宽高比（不是设备整体的宽高比）
+    /// 这个值应该与视频的宽高比一致，以避免渲染时产生黑边
+    private(set) var screenAspectRatio: CGFloat = 9.0 / 19.5
+
+    /// 设备整体的宽高比（包含边框，用于外部布局参考）
     private(set) var aspectRatio: CGFloat = 9.0 / 19.0
 
     // MARK: - UI 组件
@@ -45,21 +51,31 @@ final class DeviceBezelView: NSView {
 
     // MARK: - 配置方法
 
+    /// 配置设备外观
+    /// - Parameters:
+    ///   - deviceName: 设备名称（用于识别设备型号）
+    ///   - platform: 设备平台
+    ///   - aspectRatio: 屏幕内容区域的宽高比（如视频的宽高比），nil 时使用设备默认值
     func configure(deviceName: String?, platform: DevicePlatform, aspectRatio: CGFloat? = nil) {
         deviceModel = DeviceModel.identify(from: deviceName, platform: platform)
-        self.aspectRatio = aspectRatio ?? deviceModel.defaultAspectRatio
+        screenAspectRatio = aspectRatio ?? deviceModel.defaultScreenAspectRatio
         updateLayers()
     }
 
+    /// 配置设备外观
+    /// - Parameters:
+    ///   - model: 设备型号
+    ///   - aspectRatio: 屏幕内容区域的宽高比，nil 时使用设备默认值
     func configure(model: DeviceModel, aspectRatio: CGFloat? = nil) {
         deviceModel = model
-        self.aspectRatio = aspectRatio ?? model.defaultAspectRatio
+        screenAspectRatio = aspectRatio ?? model.defaultScreenAspectRatio
         updateLayers()
     }
 
+    /// 更新屏幕内容区域的宽高比
     func updateAspectRatio(_ ratio: CGFloat) {
-        guard ratio > 0, ratio != aspectRatio else { return }
-        aspectRatio = ratio
+        guard ratio > 0, ratio != screenAspectRatio else { return }
+        screenAspectRatio = ratio
         updateLayers()
     }
 
@@ -106,17 +122,50 @@ final class DeviceBezelView: NSView {
     private func updateLayers() {
         guard bounds.width > 0, bounds.height > 0 else { return }
 
+        // 核心思路：以屏幕内容区域的宽高比 (screenAspectRatio) 为基准，反推设备整体尺寸
+        // 这样确保 screenRect 的宽高比与视频一致，避免渲染时产生黑边
+        //
+        // 数学推导：
+        // 设 r = screenAspectRatio, b = bezelRatio, e = extraBezelRatio
+        // 由于 bezelWidth = deviceWidth * b，边框是按设备宽度计算的：
+        //   screenWidth = deviceWidth * (1 - 2*b)
+        //   screenHeight = deviceHeight - 2*bezelWidth - 2*extraBezel
+        //                = deviceHeight - 2*deviceWidth*(b + e)
+        // 设 da = deviceWidth/deviceHeight，则：
+        //   r = screenWidth/screenHeight
+        //     = [da * (1 - 2*b)] / [1 - 2*da*(b + e)]
+        // 解出 da：
+        //   da = r / [(1 - 2*b) + 2*r*(b + e)]
+
         let containerAspect = bounds.width / bounds.height
+
+        // 边框相关比例
+        let bezelRatio = deviceModel.bezelWidthRatio
+        let hasHomeButton = if case .homeButton = deviceModel.topFeature {
+            true
+        } else {
+            false
+        }
+        let extraBezelRatio: CGFloat = hasHomeButton ? 0.10 : 0
+
+        // 计算设备整体的宽高比（根据屏幕宽高比和边框推算）
+        let r = screenAspectRatio
+        let b = bezelRatio
+        let e = extraBezelRatio
+        let deviceAspect = r / ((1 - 2 * b) + 2 * r * (b + e))
+
         let deviceWidth: CGFloat
         let deviceHeight: CGFloat
-        let sideMargin: CGFloat = 8
 
-        if aspectRatio < containerAspect {
-            deviceHeight = bounds.height * 0.92
-            deviceWidth = deviceHeight * aspectRatio
+        // 设备尽可能填满容器，保持设备整体宽高比
+        if deviceAspect < containerAspect {
+            // 容器更宽，以高度为基准
+            deviceHeight = bounds.height
+            deviceWidth = deviceHeight * deviceAspect
         } else {
-            deviceWidth = (bounds.width - sideMargin * 2) * 0.92
-            deviceHeight = deviceWidth / aspectRatio
+            // 容器更高，以宽度为基准
+            deviceWidth = bounds.width
+            deviceHeight = deviceWidth / deviceAspect
         }
 
         let deviceRect = CGRect(
@@ -126,16 +175,19 @@ final class DeviceBezelView: NSView {
             height: deviceHeight
         )
 
-        let bezelWidth = deviceWidth * deviceModel.bezelWidthRatio
+        // 更新设备整体宽高比（供外部布局使用）
+        aspectRatio = deviceAspect
+
+        let bezelWidth = deviceWidth * bezelRatio
         let bezelCornerRadius = deviceWidth * deviceModel.bezelCornerRadiusRatio
         let screenCornerRadius = deviceWidth * deviceModel.screenCornerRadiusRatio
 
-        // 计算屏幕区域（需要先计算，供镂空使用）
+        // 计算屏幕区域
         var screenRect = deviceRect.insetBy(dx: bezelWidth, dy: bezelWidth)
 
         // iPhone SE / Legacy 需要更大的顶部和底部边框
         if case .homeButton = deviceModel.topFeature {
-            let extraBezel = deviceWidth * 0.10
+            let extraBezel = deviceWidth * extraBezelRatio
             screenRect = CGRect(
                 x: screenRect.minX,
                 y: screenRect.minY + extraBezel,
@@ -445,6 +497,11 @@ final class DeviceBezelView: NSView {
 
     var screenFrame: CGRect {
         screenContentView.frame
+    }
+
+    /// 屏幕圆角半径（用于 Metal 渲染遮罩）
+    var screenCornerRadius: CGFloat {
+        screenContentView.layer?.cornerRadius ?? 0
     }
 }
 

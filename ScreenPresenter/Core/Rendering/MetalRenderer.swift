@@ -53,6 +53,10 @@ final class MetalRenderer {
     var primaryScreenFrame: CGRect = .zero
     /// 右侧/下方设备的屏幕区域（在视图坐标系中）
     var secondaryScreenFrame: CGRect = .zero
+    /// 左侧/上方设备的屏幕圆角半径
+    var primaryScreenCornerRadius: CGFloat = 0
+    /// 右侧/下方设备的屏幕圆角半径
+    var secondaryScreenCornerRadius: CGFloat = 0
 
     // MARK: - 初始化
 
@@ -184,15 +188,8 @@ final class MetalRenderer {
         encoder.setRenderPipelineState(pipelineState)
         encoder.setFragmentSamplerState(samplerState, index: 0)
 
-        // 根据布局模式渲染
-        switch layoutMode {
-        case .sideBySide:
-            renderSideBySide(encoder: encoder, drawableSize: drawableSize)
-        case .topBottom:
-            renderTopBottom(encoder: encoder, drawableSize: drawableSize)
-        case .single:
-            renderSingle(encoder: encoder, drawableSize: drawableSize)
-        }
+        // 渲染左右并排布局
+        renderSideBySide(encoder: encoder, drawableSize: drawableSize)
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
@@ -203,8 +200,11 @@ final class MetalRenderer {
 
     /// 左右并排渲染
     private func renderSideBySide(encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
-        // 确定左右纹理
+        // 确定左右纹理和圆角
         let (leftTex, rightTex) = isSwapped ? (rightTexture, leftTexture) : (leftTexture, rightTexture)
+        let (leftRadius, rightRadius) = isSwapped
+            ? (secondaryScreenCornerRadius, primaryScreenCornerRadius)
+            : (primaryScreenCornerRadius, secondaryScreenCornerRadius)
 
         // 渲染左侧（主屏幕区域）
         if let texture = leftTex {
@@ -212,7 +212,8 @@ final class MetalRenderer {
                 texture,
                 encoder: encoder,
                 screenFrame: primaryScreenFrame,
-                drawableSize: drawableSize
+                drawableSize: drawableSize,
+                cornerRadius: leftRadius
             )
         }
 
@@ -222,47 +223,8 @@ final class MetalRenderer {
                 texture,
                 encoder: encoder,
                 screenFrame: secondaryScreenFrame,
-                drawableSize: drawableSize
-            )
-        }
-    }
-
-    /// 上下布局渲染
-    private func renderTopBottom(encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
-        // 确定上下纹理
-        let (topTex, bottomTex) = isSwapped ? (rightTexture, leftTexture) : (leftTexture, rightTexture)
-
-        // 渲染上方（主屏幕区域）
-        if let texture = topTex {
-            renderTextureInScreenFrame(
-                texture,
-                encoder: encoder,
-                screenFrame: primaryScreenFrame,
-                drawableSize: drawableSize
-            )
-        }
-
-        // 渲染下方（次屏幕区域）
-        if let texture = bottomTex {
-            renderTextureInScreenFrame(
-                texture,
-                encoder: encoder,
-                screenFrame: secondaryScreenFrame,
-                drawableSize: drawableSize
-            )
-        }
-    }
-
-    /// 单视图渲染
-    private func renderSingle(encoder: MTLRenderCommandEncoder, drawableSize: CGSize) {
-        let texture = isSwapped ? rightTexture : leftTexture
-
-        if let texture {
-            renderTextureInScreenFrame(
-                texture,
-                encoder: encoder,
-                screenFrame: primaryScreenFrame,
-                drawableSize: drawableSize
+                drawableSize: drawableSize,
+                cornerRadius: rightRadius
             )
         }
     }
@@ -272,7 +234,8 @@ final class MetalRenderer {
         _ texture: MTLTexture,
         encoder: MTLRenderCommandEncoder,
         screenFrame: CGRect,
-        drawableSize: CGSize
+        drawableSize: CGSize,
+        cornerRadius: CGFloat = 0
     ) {
         guard screenFrame.width > 0, screenFrame.height > 0 else { return }
 
@@ -300,8 +263,15 @@ final class MetalRenderer {
             texture,
             encoder: encoder,
             viewport: viewport,
-            containerSize: screenFrame.size
+            containerSize: screenFrame.size,
+            cornerRadius: cornerRadius
         )
+    }
+
+    /// 圆角参数结构体（与着色器中的定义匹配）
+    private struct RoundedRectParams {
+        var cornerRadius: Float
+        var aspectRatio: Float
     }
 
     /// 渲染单个纹理（保持纵横比）
@@ -309,7 +279,8 @@ final class MetalRenderer {
         _ texture: MTLTexture,
         encoder: MTLRenderCommandEncoder,
         viewport: MTLViewport,
-        containerSize: CGSize
+        containerSize: CGSize,
+        cornerRadius: CGFloat = 0
     ) {
         encoder.setViewport(viewport)
 
@@ -337,8 +308,19 @@ final class MetalRenderer {
             scaleX, scaleY, 1.0, 0.0, // 右上
         ]
 
+        // 计算归一化的圆角半径
+        // 圆角半径相对于容器高度的比例，转换为 -1 到 1 坐标系
+        let normalizedCornerRadius = Float(cornerRadius / containerSize.height) * 2.0 * scaleY
+
+        // 设置圆角参数
+        var params = RoundedRectParams(
+            cornerRadius: normalizedCornerRadius,
+            aspectRatio: scaleX / scaleY
+        )
+
         encoder.setVertexBytes(vertices, length: vertices.count * MemoryLayout<Float>.size, index: 0)
         encoder.setFragmentTexture(texture, index: 0)
+        encoder.setFragmentBytes(&params, length: MemoryLayout<RoundedRectParams>.size, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
 
@@ -398,6 +380,13 @@ final class MetalRenderer {
         struct VertexOut {
             float4 position [[position]];
             float2 texCoord;
+            float2 localPos;  // 相对于视口的局部坐标 (-1 到 1)
+        };
+
+        // 圆角参数（通过 buffer 传递）
+        struct RoundedRectParams {
+            float cornerRadius;     // 圆角半径（归一化到 -1 到 1 坐标系）
+            float aspectRatio;      // 视口宽高比
         };
 
         vertex VertexOut vertexShader(uint vertexID [[vertex_id]],
@@ -406,13 +395,44 @@ final class MetalRenderer {
             float4 v = vertices[vertexID];
             out.position = float4(v.xy, 0.0, 1.0);
             out.texCoord = v.zw;
+            out.localPos = v.xy;  // 保存局部坐标用于圆角计算
             return out;
+        }
+
+        // 计算点到圆角矩形边缘的有符号距离
+        float roundedBoxSDF(float2 p, float2 size, float radius) {
+            float2 q = abs(p) - size + radius;
+            return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
         }
 
         fragment float4 fragmentShader(VertexOut in [[stage_in]],
                                         texture2d<float> texture [[texture(0)]],
-                                        sampler textureSampler [[sampler(0)]]) {
-            return texture.sample(textureSampler, in.texCoord);
+                                        sampler textureSampler [[sampler(0)]],
+                                        constant RoundedRectParams &params [[buffer(0)]]) {
+            float4 color = texture.sample(textureSampler, in.texCoord);
+            
+            // 如果圆角半径为 0，直接返回颜色
+            if (params.cornerRadius <= 0.0) {
+                return color;
+            }
+            
+            // 考虑宽高比调整坐标
+            float2 adjustedPos = in.localPos;
+            adjustedPos.x *= params.aspectRatio;
+            
+            // 计算调整后的尺寸和圆角
+            float2 size = float2(params.aspectRatio, 1.0);
+            float adjustedRadius = params.cornerRadius * params.aspectRatio;
+            
+            // 计算有符号距离
+            float dist = roundedBoxSDF(adjustedPos, size, adjustedRadius);
+            
+            // 使用平滑过渡实现抗锯齿
+            float aa = fwidth(dist) * 1.5;
+            float alpha = 1.0 - smoothstep(-aa, aa, dist);
+            
+            color.a *= alpha;
+            return color;
         }
         """
 
@@ -447,22 +467,12 @@ final class MetalRenderer {
 
 enum LayoutMode: String, CaseIterable {
     case sideBySide = "side_by_side"
-    case topBottom = "top_bottom"
-    case single
 
     var displayName: String {
-        switch self {
-        case .sideBySide: L10n.layout.sideBySide
-        case .topBottom: L10n.layout.topBottom
-        case .single: L10n.layout.single
-        }
+        L10n.layout.sideBySide
     }
 
     var icon: String {
-        switch self {
-        case .sideBySide: "rectangle.split.2x1"
-        case .topBottom: "rectangle.split.1x2"
-        case .single: "rectangle"
-        }
+        "rectangle.split.2x1"
     }
 }

@@ -22,7 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 应用生命周期
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("=== ScreenPresenter 应用启动 ===")
         AppLogger.app.info("应用启动")
 
         // 创建主菜单（纯代码 AppKit 应用必须）
@@ -49,17 +48,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 请求摄像头权限
     private func requestCameraPermission() {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
-        print("摄像头权限状态: \(status.rawValue) (0=未确定, 1=受限, 2=拒绝, 3=已授权)")
+        AppLogger.app.info("摄像头权限状态: \(status.rawValue) (0=未确定, 1=受限, 2=拒绝, 3=已授权)")
 
         if status == .notDetermined {
-            print("请求摄像头权限...")
+            AppLogger.app.info("请求摄像头权限...")
             AVCaptureDevice.requestAccess(for: .video) { granted in
-                print("摄像头权限请求结果: \(granted ? "已授权" : "已拒绝")")
+                AppLogger.app.info("摄像头权限请求结果: \(granted ? "已授权" : "已拒绝")")
             }
         } else if status == .denied {
-            print("摄像头权限已被拒绝，请在系统设置中开启")
+            AppLogger.app.warning("摄像头权限已被拒绝，请在系统设置中开启")
         } else if status == .authorized {
-            print("摄像头权限已授权")
+            AppLogger.app.info("摄像头权限已授权")
         }
     }
 

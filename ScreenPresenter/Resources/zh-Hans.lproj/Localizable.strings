@@ -68,8 +68,6 @@
 
 // MARK: - Layout
 "layout.sideBySide" = "左右并排";
-"layout.topBottom" = "上下布局";
-"layout.single" = "单屏";
 
 // MARK: - Theme
 "theme.system" = "跟随系统";
@@ -112,9 +110,9 @@
 "prefs.appearance.backgroundOpacity" = "背景透明度";
 
 // MARK: - Preferences - Layout
-"prefs.layout.default" = "默认布局";
-"prefs.layout.sideBySide" = "左右";
-"prefs.layout.topBottom" = "上下";
+"prefs.layout.devicePosition" = "设备位置";
+"prefs.layout.iosOnLeft" = "左 iOS | 右 Android";
+"prefs.layout.androidOnLeft" = "左 Android | 右 iOS";
 
 // MARK: - Preferences - Connection
 "prefs.connection.autoReconnect" = "自动重连";
@@ -169,7 +167,10 @@
 
 // MARK: - iOS Device
 "ios.hint.trust" = "请在设备上点击「信任此电脑」以允许访问";
-"ios.hint.occupied" = "设备可能被 %@ 占用，请关闭后重试";
+"ios.hint.occupied" = "设备被 %@ 占用，请关闭后重试";
+"ios.hint.occupiedUnknown" = "设备被其他应用占用，请关闭后重试";
+"ios.hint.locked" = "设备已锁屏/息屏，请解锁后重试";
+"ios.hint.otherApp" = "其他应用";
 
 // MARK: - Errors
 "error.connectionFailed" = "连接失败: %@";
@@ -184,12 +185,8 @@
 // MARK: - Toolbar
 "toolbar.refresh" = "刷新";
 "toolbar.refreshing" = "刷新中...";
-"toolbar.layout" = "布局";
 "toolbar.swap" = "交换";
 "toolbar.preferences" = "偏好设置";
-"toolbar.background" = "背景色";
-"toolbar.sideBySide" = "左右";
-"toolbar.topBottom" = "上下";
 "toolbar.swap.tooltip" = "交换设备位置";
 "toolbar.refresh.tooltip" = "刷新设备列表";
 "toolbar.preferences.tooltip" = "偏好设置";
