@@ -462,9 +462,11 @@ final class MainViewController: NSViewController {
                 deviceName: appState.androidDeviceName ?? "Android",
                 modelName: appState.androidDeviceModelName,
                 systemVersion: appState.androidDeviceSystemVersion,
+                sdkVersion: appState.androidDeviceSdkVersion,
                 platform: .android,
                 fps: panel.renderView.fps,
                 resolution: appState.androidDeviceSource?.captureSize ?? .zero,
+                androidDevice: appState.currentAndroidDevice,
                 onStop: { [weak self] in
                     self?.stopAndroidCapture()
                 }
@@ -481,7 +483,9 @@ final class MainViewController: NSViewController {
                 platform: .android,
                 modelName: appState.androidDeviceModelName,
                 systemVersion: appState.androidDeviceSystemVersion,
+                sdkVersion: appState.androidDeviceSdkVersion,
                 userPrompt: userPrompt,
+                androidDevice: appState.currentAndroidDevice,
                 onStart: { [weak self] in
                     // 只有设备已授权才允许捕获
                     if isDeviceReady {

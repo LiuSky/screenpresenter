@@ -108,20 +108,154 @@ enum DeviceModel: Equatable {
     /// iPhone 通用（未识别具体型号时使用动态岛样式）
     case iPhoneGeneric
 
-    // MARK: - Android 系列
+    // MARK: - Android 三星系列
 
-    /// 三星 Galaxy S 系列 (打孔屏，居中)
+    /// 三星 Galaxy S 系列 (打孔屏，居中) - S21/S22/S23/S24/S25
     case samsungGalaxyS
+    /// 三星 Galaxy S Ultra 系列 - 大屏旗舰
+    case samsungGalaxySUltra
+    /// 三星 Galaxy A 系列 - 中端机型
+    case samsungGalaxyA
+    /// 三星 Galaxy Note 系列 - 大屏商务
+    case samsungGalaxyNote
     /// 三星 Galaxy Z Fold (折叠屏展开)
     case samsungGalaxyFold
-    /// Google Pixel 系列 (打孔屏，左上角)
+    /// 三星 Galaxy Z Flip (折叠屏翻盖)
+    case samsungGalaxyFlip
+
+    // MARK: - Android Google 系列
+
+    /// Google Pixel 系列 (打孔屏，左上角) - Pixel 6/7/8/9
     case googlePixel
-    /// 小米系列 (打孔屏，居中或左上角)
-    case xiaomi
-    /// 一加系列
+    /// Google Pixel Pro 系列 - 大屏旗舰
+    case googlePixelPro
+    /// Google Pixel Fold - 折叠屏
+    case googlePixelFold
+    /// Google Pixel A 系列 - 中端机型
+    case googlePixelA
+
+    // MARK: - Android 小米系列
+
+    /// 小米数字系列 - Mi 12/13/14/15
+    case xiaomiMi
+    /// 小米 Ultra 系列 - 顶级旗舰
+    case xiaomiUltra
+    /// 小米 MIX 系列 - 全面屏先驱
+    case xiaomiMix
+    /// Redmi 系列 - 性价比之选
+    case redmi
+    /// Redmi Note 系列 - 千元机皇
+    case redmiNote
+    /// Redmi K 系列 - 性能旗舰
+    case redmiK
+    /// POCO 系列 - 性价比旗舰
+    case poco
+
+    // MARK: - Android 一加系列
+
+    /// 一加数字系列 - OnePlus 10/11/12/13
     case oneplus
-    /// OPPO / Vivo 系列
-    case oppoVivo
+    /// 一加 Ace 系列 - 性能旗舰
+    case oneplusAce
+    /// 一加 Nord 系列 - 中端机型
+    case oneplusNord
+
+    // MARK: - Android OPPO 系列
+
+    /// OPPO Find 系列 - 旗舰机型
+    case oppoFind
+    /// OPPO Find X 系列 - 顶级旗舰
+    case oppoFindX
+    /// OPPO Reno 系列 - 影像旗舰
+    case oppoReno
+    /// OPPO A 系列 - 中端机型
+    case oppoA
+
+    // MARK: - Android Vivo 系列
+
+    /// Vivo X 系列 - 影像旗舰
+    case vivoX
+    /// Vivo X Fold 系列 - 折叠旗舰
+    case vivoXFold
+    /// Vivo S 系列 - 自拍旗舰
+    case vivoS
+    /// Vivo Y 系列 - 中端机型
+    case vivoY
+    /// iQOO 系列 - 游戏旗舰
+    case iqoo
+    /// iQOO Neo 系列 - 性价比旗舰
+    case iqooNeo
+
+    // MARK: - Android 华为/荣耀系列
+
+    /// 华为 P 系列 - 影像旗舰
+    case huaweiP
+    /// 华为 Mate 系列 - 商务旗舰
+    case huaweiMate
+    /// 华为 Mate X 系列 - 折叠旗舰
+    case huaweiMateX
+    /// 华为 nova 系列 - 时尚中端
+    case huaweiNova
+    /// 荣耀数字系列 - Honor 90/100
+    case honor
+    /// 荣耀 Magic 系列 - 旗舰机型
+    case honorMagic
+    /// 荣耀 X 系列 - 中端机型
+    case honorX
+
+    // MARK: - Android Realme 系列
+
+    /// Realme GT 系列 - 性能旗舰
+    case realmeGT
+    /// Realme 数字系列 - 中端机型
+    case realme
+
+    // MARK: - Android Sony 系列
+
+    /// Sony Xperia 1 系列 - 影像旗舰 (21:9 带状屏)
+    case sonyXperia1
+    /// Sony Xperia 5 系列 - 紧凑旗舰 (21:9 带状屏)
+    case sonyXperia5
+    /// Sony Xperia 10 系列 - 中端机型
+    case sonyXperia10
+
+    // MARK: - Android Motorola 系列
+
+    /// Motorola Edge 系列 - 旗舰机型
+    case motorolaEdge
+    /// Motorola Razr 系列 - 折叠翻盖
+    case motorolaRazr
+    /// Moto G 系列 - 中端机型
+    case motoG
+
+    // MARK: - Android ASUS 系列
+
+    /// ASUS ROG Phone 系列 - 游戏旗舰
+    case asusROG
+    /// ASUS Zenfone 系列 - 紧凑旗舰
+    case asusZenfone
+
+    // MARK: - Android 游戏手机系列
+
+    /// Nubia Red Magic 系列 - 游戏旗舰
+    case nubiaRedMagic
+    /// Black Shark 黑鲨系列 - 游戏旗舰
+    case blackShark
+    /// Lenovo Legion 系列 - 游戏旗舰
+    case lenovoLegion
+
+    // MARK: - Android 其他品牌
+
+    /// 魅族系列
+    case meizu
+    /// Nothing Phone 系列 - 透明设计
+    case nothingPhone
+    /// TCL 系列
+    case tcl
+    /// ZTE 系列
+    case zte
+    /// 传音 (Infinix/Tecno/itel)
+    case transsion
     /// Android 通用
     case androidGeneric
 
@@ -190,11 +324,55 @@ extension DeviceModel {
         // iPhone 通用 - 使用 Pro 系列参数
         case .iPhoneGeneric:
             0.140
-        // Android 系列
-        case .samsungGalaxyS, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
+        // Samsung 系列
+        case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote:
             0.08
-        case .samsungGalaxyFold:
+        case .samsungGalaxyFold, .samsungGalaxyFlip:
             0.05
+        // Google Pixel 系列
+        case .googlePixel, .googlePixelPro, .googlePixelA:
+            0.08
+        case .googlePixelFold:
+            0.05
+        // 小米系列
+        case .xiaomiMi, .xiaomiUltra, .xiaomiMix, .redmi, .redmiNote, .redmiK, .poco:
+            0.08
+        // 一加系列
+        case .oneplus, .oneplusAce, .oneplusNord:
+            0.08
+        // OPPO 系列
+        case .oppoFind, .oppoFindX, .oppoReno, .oppoA:
+            0.08
+        // Vivo 系列
+        case .vivoX, .vivoS, .vivoY, .iqoo, .iqooNeo:
+            0.08
+        case .vivoXFold:
+            0.05
+        // 华为/荣耀系列
+        case .huaweiP, .huaweiMate, .huaweiNova, .honor, .honorMagic, .honorX:
+            0.08
+        case .huaweiMateX:
+            0.05
+        // Realme 系列
+        case .realmeGT, .realme:
+            0.08
+        // Sony Xperia 系列 - 21:9 屏幕，圆角较小
+        case .sonyXperia1, .sonyXperia5, .sonyXperia10:
+            0.06
+        // Motorola 系列
+        case .motorolaEdge, .motoG:
+            0.08
+        case .motorolaRazr:
+            0.05
+        // ASUS 系列
+        case .asusROG, .asusZenfone:
+            0.07
+        // 游戏手机系列 - 圆角较小
+        case .nubiaRedMagic, .blackShark, .lenovoLegion:
+            0.06
+        // 其他品牌
+        case .meizu, .nothingPhone, .tcl, .zte, .transsion:
+            0.07
         case .androidGeneric:
             0.07
         case .unknown:
@@ -261,14 +439,96 @@ extension DeviceModel {
         // iPhone 通用
         case .iPhoneGeneric:
             1290.0 / 2796.0
-        // Android 系列
-        case .samsungGalaxyS:
-            1080.0 / 2340.0
+        // Samsung 系列 - 19.5:9 或 20:9
+        case .samsungGalaxyS, .samsungGalaxySUltra:
+            1080.0 / 2340.0 // 19.5:9
+        case .samsungGalaxyA, .samsungGalaxyNote:
+            1080.0 / 2400.0 // 20:9
         case .samsungGalaxyFold:
-            1812.0 / 2176.0
-        case .googlePixel:
+            1812.0 / 2176.0 // 展开态接近正方形
+        case .samsungGalaxyFlip:
+            1080.0 / 2640.0 // 22:9 窄长屏
+        // Google Pixel 系列 - 20:9
+        case .googlePixel, .googlePixelPro, .googlePixelA:
             1080.0 / 2400.0
-        case .xiaomi, .oneplus, .oppoVivo:
+        case .googlePixelFold:
+            1840.0 / 2208.0 // 展开态
+        // 小米系列 - 20:9
+        case .xiaomiMi, .xiaomiUltra, .xiaomiMix:
+            1080.0 / 2400.0
+        case .redmi, .redmiNote:
+            1080.0 / 2400.0
+        case .redmiK, .poco:
+            1220.0 / 2712.0 // 部分机型使用 1.5K 屏
+        // 一加系列 - 20:9
+        case .oneplus, .oneplusAce:
+            1080.0 / 2400.0
+        case .oneplusNord:
+            1080.0 / 2400.0
+        // OPPO 系列 - 20:9
+        case .oppoFind, .oppoFindX:
+            1080.0 / 2412.0
+        case .oppoReno, .oppoA:
+            1080.0 / 2400.0
+        // Vivo 系列 - 20:9
+        case .vivoX, .vivoS:
+            1080.0 / 2400.0
+        case .vivoXFold:
+            1916.0 / 2160.0 // 展开态
+        case .vivoY:
+            1080.0 / 2408.0
+        case .iqoo, .iqooNeo:
+            1080.0 / 2400.0
+        // 华为/荣耀系列 - 20:9
+        case .huaweiP, .huaweiMate:
+            1080.0 / 2376.0
+        case .huaweiMateX:
+            1848.0 / 2200.0 // 展开态
+        case .huaweiNova:
+            1080.0 / 2400.0
+        case .honor, .honorMagic:
+            1080.0 / 2400.0
+        case .honorX:
+            1080.0 / 2388.0
+        // Realme 系列 - 20:9
+        case .realmeGT, .realme:
+            1080.0 / 2400.0
+        // Sony Xperia 系列 - 21:9 带状屏
+        case .sonyXperia1:
+            1644.0 / 3840.0 // 21:9 4K
+        case .sonyXperia5:
+            1080.0 / 2520.0 // 21:9
+        case .sonyXperia10:
+            1080.0 / 2520.0 // 21:9
+        // Motorola 系列 - 20:9 或 22:9
+        case .motorolaEdge:
+            1080.0 / 2400.0
+        case .motorolaRazr:
+            1080.0 / 2640.0 // 22:9 翻盖
+        case .motoG:
+            1080.0 / 2400.0
+        // ASUS 系列 - 20:9
+        case .asusROG:
+            1080.0 / 2448.0 // 游戏屏
+        case .asusZenfone:
+            1080.0 / 2400.0
+        // 游戏手机系列 - 20:9 或更长
+        case .nubiaRedMagic:
+            1116.0 / 2480.0
+        case .blackShark:
+            1080.0 / 2400.0
+        case .lenovoLegion:
+            1080.0 / 2460.0
+        // 其他品牌 - 20:9
+        case .meizu:
+            1080.0 / 2360.0
+        case .nothingPhone:
+            1080.0 / 2412.0
+        case .tcl:
+            1080.0 / 2400.0
+        case .zte:
+            1080.0 / 2400.0
+        case .transsion:
             1080.0 / 2400.0
         case .androidGeneric:
             1080.0 / 2400.0
@@ -333,11 +593,59 @@ extension DeviceModel {
         // iPhone 通用
         case .iPhoneGeneric:
             0.007
-        // Android 系列
-        case .samsungGalaxyS, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
+        // Samsung 系列
+        case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote:
             0.006
-        case .samsungGalaxyFold:
+        case .samsungGalaxyFold, .samsungGalaxyFlip:
             0.005
+        // Google Pixel 系列
+        case .googlePixel, .googlePixelPro, .googlePixelA:
+            0.006
+        case .googlePixelFold:
+            0.005
+        // 小米系列
+        case .xiaomiMi, .xiaomiUltra, .xiaomiMix:
+            0.006
+        case .redmi, .redmiNote, .redmiK, .poco:
+            0.007
+        // 一加系列
+        case .oneplus, .oneplusAce, .oneplusNord:
+            0.006
+        // OPPO 系列
+        case .oppoFind, .oppoFindX, .oppoReno, .oppoA:
+            0.006
+        // Vivo 系列
+        case .vivoX, .vivoS, .vivoY, .iqoo, .iqooNeo:
+            0.006
+        case .vivoXFold:
+            0.005
+        // 华为/荣耀系列
+        case .huaweiP, .huaweiMate, .huaweiNova:
+            0.006
+        case .huaweiMateX:
+            0.005
+        case .honor, .honorMagic, .honorX:
+            0.006
+        // Realme 系列
+        case .realmeGT, .realme:
+            0.007
+        // Sony 系列
+        case .sonyXperia1, .sonyXperia5, .sonyXperia10:
+            0.005
+        // Motorola 系列
+        case .motorolaEdge, .motoG:
+            0.007
+        case .motorolaRazr:
+            0.005
+        // ASUS 系列
+        case .asusROG, .asusZenfone:
+            0.006
+        // 游戏手机系列
+        case .nubiaRedMagic, .blackShark, .lenovoLegion:
+            0.005
+        // 其他品牌
+        case .meizu, .nothingPhone, .tcl, .zte, .transsion:
+            0.007
         case .androidGeneric:
             0.007
         case .unknown:
@@ -409,13 +717,95 @@ extension DeviceModel {
         // iPhone 通用 - 使用 15 系列参数
         case .iPhoneGeneric:
             0.025
-        // Android 系列
-        case .samsungGalaxyS, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
-            0.020
-        case .samsungGalaxyFold:
+        // Samsung 系列
+        case .samsungGalaxyS, .samsungGalaxySUltra:
+            0.018
+        case .samsungGalaxyA, .samsungGalaxyNote:
+            0.022
+        case .samsungGalaxyFold, .samsungGalaxyFlip:
             0.015
-        case .androidGeneric:
+        // Google Pixel 系列
+        case .googlePixel, .googlePixelPro:
+            0.020
+        case .googlePixelA:
+            0.024
+        case .googlePixelFold:
+            0.015
+        // 小米系列
+        case .xiaomiMi, .xiaomiUltra:
+            0.018
+        case .xiaomiMix:
+            0.015
+        case .redmi, .redmiNote:
             0.025
+        case .redmiK, .poco:
+            0.020
+        // 一加系列
+        case .oneplus, .oneplusAce:
+            0.018
+        case .oneplusNord:
+            0.022
+        // OPPO 系列
+        case .oppoFind, .oppoFindX:
+            0.018
+        case .oppoReno:
+            0.020
+        case .oppoA:
+            0.025
+        // Vivo 系列
+        case .vivoX:
+            0.018
+        case .vivoXFold:
+            0.015
+        case .vivoS, .vivoY:
+            0.022
+        case .iqoo, .iqooNeo:
+            0.020
+        // 华为/荣耀系列
+        case .huaweiP, .huaweiMate:
+            0.018
+        case .huaweiMateX:
+            0.015
+        case .huaweiNova:
+            0.022
+        case .honor, .honorMagic:
+            0.020
+        case .honorX:
+            0.024
+        // Realme 系列
+        case .realmeGT:
+            0.020
+        case .realme:
+            0.024
+        // Sony 系列 - 较窄边框
+        case .sonyXperia1, .sonyXperia5:
+            0.016
+        case .sonyXperia10:
+            0.020
+        // Motorola 系列
+        case .motorolaEdge:
+            0.020
+        case .motorolaRazr:
+            0.015
+        case .motoG:
+            0.025
+        // ASUS 系列
+        case .asusROG:
+            0.018
+        case .asusZenfone:
+            0.020
+        // 游戏手机系列 - 较窄边框
+        case .nubiaRedMagic, .blackShark, .lenovoLegion:
+            0.016
+        // 其他品牌
+        case .meizu:
+            0.020
+        case .nothingPhone:
+            0.018
+        case .tcl, .zte, .transsion:
+            0.025
+        case .androidGeneric:
+            0.022
         case .unknown:
             0.025
         }
@@ -475,13 +865,57 @@ extension DeviceModel {
         // iPhone 通用
         case .iPhoneGeneric:
             0.148
-        // Android 系列
-        case .samsungGalaxyS, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
+        // Samsung 系列
+        case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote:
             0.10
-        case .samsungGalaxyFold:
+        case .samsungGalaxyFold, .samsungGalaxyFlip:
             0.06
-        case .androidGeneric:
+        // Google Pixel 系列
+        case .googlePixel, .googlePixelPro, .googlePixelA:
+            0.10
+        case .googlePixelFold:
+            0.06
+        // 小米系列
+        case .xiaomiMi, .xiaomiUltra, .xiaomiMix, .redmi, .redmiNote, .redmiK, .poco:
+            0.10
+        // 一加系列
+        case .oneplus, .oneplusAce, .oneplusNord:
+            0.10
+        // OPPO 系列
+        case .oppoFind, .oppoFindX, .oppoReno, .oppoA:
+            0.10
+        // Vivo 系列
+        case .vivoX, .vivoS, .vivoY, .iqoo, .iqooNeo:
+            0.10
+        case .vivoXFold:
+            0.06
+        // 华为/荣耀系列
+        case .huaweiP, .huaweiMate, .huaweiNova, .honor, .honorMagic, .honorX:
+            0.10
+        case .huaweiMateX:
+            0.06
+        // Realme 系列
+        case .realmeGT, .realme:
+            0.10
+        // Sony 系列 - 较小圆角
+        case .sonyXperia1, .sonyXperia5, .sonyXperia10:
             0.08
+        // Motorola 系列
+        case .motorolaEdge, .motoG:
+            0.10
+        case .motorolaRazr:
+            0.06
+        // ASUS 系列
+        case .asusROG, .asusZenfone:
+            0.09
+        // 游戏手机系列 - 较小圆角
+        case .nubiaRedMagic, .blackShark, .lenovoLegion:
+            0.08
+        // 其他品牌
+        case .meizu, .nothingPhone, .tcl, .zte, .transsion:
+            0.09
+        case .androidGeneric:
+            0.09
         case .unknown:
             0.08
         }
@@ -505,13 +939,56 @@ extension DeviceModel {
         // iPhone 通用
         case .iPhoneGeneric:
             NSColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0)
-        // Android 系列
-        case .samsungGalaxyS, .samsungGalaxyFold:
+        // Samsung 系列
+        case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote,
+             .samsungGalaxyFold, .samsungGalaxyFlip:
             NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
-        case .googlePixel:
+        // Google Pixel 系列
+        case .googlePixel, .googlePixelPro, .googlePixelA, .googlePixelFold:
             NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
-        case .xiaomi, .oneplus, .oppoVivo:
+        // 小米系列
+        case .xiaomiMi, .xiaomiUltra, .xiaomiMix, .redmi, .redmiNote, .redmiK, .poco:
             NSColor(red: 0.09, green: 0.09, blue: 0.11, alpha: 1.0)
+        // 一加系列
+        case .oneplus, .oneplusAce, .oneplusNord:
+            NSColor(red: 0.09, green: 0.09, blue: 0.11, alpha: 1.0)
+        // OPPO 系列
+        case .oppoFind, .oppoFindX, .oppoReno, .oppoA:
+            NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
+        // Vivo 系列
+        case .vivoX, .vivoXFold, .vivoS, .vivoY, .iqoo, .iqooNeo:
+            NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
+        // 华为/荣耀系列
+        case .huaweiP, .huaweiMate, .huaweiMateX, .huaweiNova, .honor, .honorMagic, .honorX:
+            NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
+        // Realme 系列
+        case .realmeGT, .realme:
+            NSColor(red: 0.09, green: 0.09, blue: 0.11, alpha: 1.0)
+        // Sony 系列
+        case .sonyXperia1, .sonyXperia5, .sonyXperia10:
+            NSColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1.0)
+        // Motorola 系列
+        case .motorolaEdge, .motorolaRazr, .motoG:
+            NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1.0)
+        // ASUS 系列
+        case .asusROG:
+            NSColor(red: 0.06, green: 0.06, blue: 0.08, alpha: 1.0)
+        case .asusZenfone:
+            NSColor(red: 0.09, green: 0.09, blue: 0.11, alpha: 1.0)
+        // 游戏手机系列
+        case .nubiaRedMagic:
+            NSColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1.0)
+        case .blackShark:
+            NSColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1.0)
+        case .lenovoLegion:
+            NSColor(red: 0.06, green: 0.06, blue: 0.08, alpha: 1.0)
+        // 其他品牌
+        case .meizu:
+            NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1.0)
+        case .nothingPhone:
+            NSColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1.0)
+        case .tcl, .zte, .transsion:
+            NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1.0)
         case .androidGeneric:
             NSColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0)
         case .unknown:
@@ -611,15 +1088,97 @@ extension DeviceModel {
         // iPhone 通用 - 使用动态岛
         case .iPhoneGeneric:
             .dynamicIsland(widthRatio: 0.321, heightRatio: 0.092)
-        // Android 系列
-        case .samsungGalaxyS, .xiaomi, .oppoVivo:
+        // Samsung 系列 - 居中打孔
+        case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote:
             .punchHole(position: .center, sizeRatio: 0.028)
-        case .googlePixel:
-            .punchHole(position: .topLeft, sizeRatio: 0.028)
-        case .oneplus:
-            .punchHole(position: .topLeft, sizeRatio: 0.025)
         case .samsungGalaxyFold:
             .punchHole(position: .topRight, sizeRatio: 0.022)
+        case .samsungGalaxyFlip:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        // Google Pixel 系列 - 居中打孔
+        case .googlePixel, .googlePixelPro, .googlePixelA:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        case .googlePixelFold:
+            .punchHole(position: .topRight, sizeRatio: 0.022)
+        // 小米系列 - 居中或左上打孔
+        case .xiaomiMi, .xiaomiUltra:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .xiaomiMix:
+            .none // MIX 系列部分机型无打孔
+        case .redmi, .redmiNote:
+            .punchHole(position: .center, sizeRatio: 0.030)
+        case .redmiK, .poco:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        // 一加系列 - 左上打孔
+        case .oneplus, .oneplusAce:
+            .punchHole(position: .topLeft, sizeRatio: 0.025)
+        case .oneplusNord:
+            .punchHole(position: .topLeft, sizeRatio: 0.028)
+        // OPPO 系列 - 左上打孔
+        case .oppoFind, .oppoFindX:
+            .punchHole(position: .topLeft, sizeRatio: 0.025)
+        case .oppoReno:
+            .punchHole(position: .topLeft, sizeRatio: 0.028)
+        case .oppoA:
+            .punchHole(position: .center, sizeRatio: 0.030)
+        // Vivo 系列 - 居中打孔
+        case .vivoX:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .vivoXFold:
+            .punchHole(position: .topRight, sizeRatio: 0.022)
+        case .vivoS, .vivoY:
+            .punchHole(position: .center, sizeRatio: 0.030)
+        case .iqoo, .iqooNeo:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        // 华为/荣耀系列 - 居中或左上打孔
+        case .huaweiP:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .huaweiMate:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .huaweiMateX:
+            .punchHole(position: .topRight, sizeRatio: 0.022)
+        case .huaweiNova:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        case .honor, .honorMagic:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .honorX:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        // Realme 系列 - 左上打孔
+        case .realmeGT:
+            .punchHole(position: .topLeft, sizeRatio: 0.025)
+        case .realme:
+            .punchHole(position: .topLeft, sizeRatio: 0.028)
+        // Sony Xperia 系列 - 无打孔（超窄边框设计）
+        case .sonyXperia1, .sonyXperia5, .sonyXperia10:
+            .none
+        // Motorola 系列 - 居中打孔
+        case .motorolaEdge:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        case .motorolaRazr:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .motoG:
+            .punchHole(position: .center, sizeRatio: 0.030)
+        // ASUS 系列 - 居中打孔
+        case .asusROG:
+            .none // ROG Phone 部分机型无打孔
+        case .asusZenfone:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        // 游戏手机系列 - 无打孔或居中打孔
+        case .nubiaRedMagic:
+            .none // 屏下摄像头
+        case .blackShark:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        case .lenovoLegion:
+            .punchHole(position: .center, sizeRatio: 0.025)
+        // 其他品牌
+        case .meizu:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        case .nothingPhone:
+            .punchHole(position: .topLeft, sizeRatio: 0.025)
+        case .tcl, .zte:
+            .punchHole(position: .center, sizeRatio: 0.028)
+        case .transsion:
+            .punchHole(position: .center, sizeRatio: 0.030)
         case .androidGeneric:
             .punchHole(position: .center, sizeRatio: 0.025)
         case .unknown:
@@ -790,14 +1349,44 @@ extension DeviceModel {
                     .init(type: .power, topRatio: 0.300, heightRatio: 0.110, width: 3),
                 ]
             )
-        // Android 系列 - 按钮在右侧
-        case .samsungGalaxyS, .samsungGalaxyFold, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
+        // Android 系列 - 按钮在右侧（标准布局）
+        case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote,
+             .samsungGalaxyFold, .samsungGalaxyFlip,
+             .googlePixel, .googlePixelPro, .googlePixelA, .googlePixelFold,
+             .xiaomiMi, .xiaomiUltra, .xiaomiMix, .redmi, .redmiNote, .redmiK, .poco,
+             .oneplus, .oneplusAce, .oneplusNord,
+             .oppoFind, .oppoFindX, .oppoReno, .oppoA,
+             .vivoX, .vivoXFold, .vivoS, .vivoY, .iqoo, .iqooNeo,
+             .huaweiP, .huaweiMate, .huaweiMateX, .huaweiNova, .honor, .honorMagic, .honorX,
+             .realmeGT, .realme,
+             .motorolaEdge, .motorolaRazr, .motoG,
+             .asusZenfone, .meizu, .nothingPhone, .tcl, .zte, .transsion:
             SideButtons(
                 left: [],
                 right: [
                     .init(type: .volumeUp, topRatio: 0.250, heightRatio: 0.075, width: 2.5),
                     .init(type: .volumeDown, topRatio: 0.345, heightRatio: 0.075, width: 2.5),
                     .init(type: .power, topRatio: 0.460, heightRatio: 0.050, width: 2.5),
+                ]
+            )
+        // Sony Xperia 系列 - 侧边指纹电源键
+        case .sonyXperia1, .sonyXperia5, .sonyXperia10:
+            SideButtons(
+                left: [],
+                right: [
+                    .init(type: .volumeUp, topRatio: 0.320, heightRatio: 0.070, width: 2.5),
+                    .init(type: .volumeDown, topRatio: 0.410, heightRatio: 0.070, width: 2.5),
+                    .init(type: .power, topRatio: 0.530, heightRatio: 0.045, width: 2.5),
+                ]
+            )
+        // 游戏手机系列 - 可能有额外按键
+        case .asusROG, .nubiaRedMagic, .blackShark, .lenovoLegion:
+            SideButtons(
+                left: [],
+                right: [
+                    .init(type: .volumeUp, topRatio: 0.240, heightRatio: 0.080, width: 2.5),
+                    .init(type: .volumeDown, topRatio: 0.340, heightRatio: 0.080, width: 2.5),
+                    .init(type: .power, topRatio: 0.450, heightRatio: 0.055, width: 2.5),
                 ]
             )
         case .androidGeneric:
@@ -865,18 +1454,129 @@ extension DeviceModel {
             "iPhone"
         case .iPhoneGeneric:
             "iPhone"
+        // Samsung 系列
         case .samsungGalaxyS:
-            "Samsung Galaxy"
+            "Samsung Galaxy S"
+        case .samsungGalaxySUltra:
+            "Samsung Galaxy S Ultra"
+        case .samsungGalaxyA:
+            "Samsung Galaxy A"
+        case .samsungGalaxyNote:
+            "Samsung Galaxy Note"
         case .samsungGalaxyFold:
-            "Samsung Fold"
+            "Samsung Galaxy Fold"
+        case .samsungGalaxyFlip:
+            "Samsung Galaxy Flip"
+        // Google Pixel 系列
         case .googlePixel:
             "Google Pixel"
-        case .xiaomi:
+        case .googlePixelPro:
+            "Google Pixel Pro"
+        case .googlePixelFold:
+            "Google Pixel Fold"
+        case .googlePixelA:
+            "Google Pixel a"
+        // 小米系列
+        case .xiaomiMi:
             "Xiaomi"
+        case .xiaomiUltra:
+            "Xiaomi Ultra"
+        case .xiaomiMix:
+            "Xiaomi MIX"
+        case .redmi:
+            "Redmi"
+        case .redmiNote:
+            "Redmi Note"
+        case .redmiK:
+            "Redmi K"
+        case .poco:
+            "POCO"
+        // 一加系列
         case .oneplus:
             "OnePlus"
-        case .oppoVivo:
-            "OPPO/Vivo"
+        case .oneplusAce:
+            "OnePlus Ace"
+        case .oneplusNord:
+            "OnePlus Nord"
+        // OPPO 系列
+        case .oppoFind:
+            "OPPO Find"
+        case .oppoFindX:
+            "OPPO Find X"
+        case .oppoReno:
+            "OPPO Reno"
+        case .oppoA:
+            "OPPO A"
+        // Vivo 系列
+        case .vivoX:
+            "Vivo X"
+        case .vivoXFold:
+            "Vivo X Fold"
+        case .vivoS:
+            "Vivo S"
+        case .vivoY:
+            "Vivo Y"
+        case .iqoo:
+            "iQOO"
+        case .iqooNeo:
+            "iQOO Neo"
+        // 华为/荣耀系列
+        case .huaweiP:
+            "Huawei P"
+        case .huaweiMate:
+            "Huawei Mate"
+        case .huaweiMateX:
+            "Huawei Mate X"
+        case .huaweiNova:
+            "Huawei nova"
+        case .honor:
+            "Honor"
+        case .honorMagic:
+            "Honor Magic"
+        case .honorX:
+            "Honor X"
+        // Realme 系列
+        case .realmeGT:
+            "Realme GT"
+        case .realme:
+            "Realme"
+        // Sony 系列
+        case .sonyXperia1:
+            "Sony Xperia 1"
+        case .sonyXperia5:
+            "Sony Xperia 5"
+        case .sonyXperia10:
+            "Sony Xperia 10"
+        // Motorola 系列
+        case .motorolaEdge:
+            "Motorola Edge"
+        case .motorolaRazr:
+            "Motorola Razr"
+        case .motoG:
+            "Moto G"
+        // ASUS 系列
+        case .asusROG:
+            "ASUS ROG Phone"
+        case .asusZenfone:
+            "ASUS Zenfone"
+        // 游戏手机系列
+        case .nubiaRedMagic:
+            "Nubia Red Magic"
+        case .blackShark:
+            "Black Shark"
+        case .lenovoLegion:
+            "Lenovo Legion"
+        // 其他品牌
+        case .meizu:
+            "Meizu"
+        case .nothingPhone:
+            "Nothing Phone"
+        case .tcl:
+            "TCL"
+        case .zte:
+            "ZTE"
+        case .transsion:
+            "Transsion"
         case .androidGeneric:
             "Android"
         case .unknown:
@@ -1101,27 +1801,420 @@ extension DeviceModel {
     }
 
     private static func identifyAndroid(from name: String) -> DeviceModel {
-        if name.contains("samsung") || name.contains("galaxy") || name.contains("sm-") {
+        // Samsung: 检查品牌名、Galaxy 系列名、型号前缀（sm- 或 sm_ 或 sm ）
+        if
+            name.contains("samsung") || name.contains("galaxy") ||
+            name.contains("sm-") || name.contains("sm_") || name.hasPrefix("sm ") {
             if name.contains("fold") || name.contains("z fold") {
                 return .samsungGalaxyFold
+            }
+            if name.contains("flip") || name.contains("z flip") {
+                return .samsungGalaxyFlip
+            }
+            if name.contains("ultra") {
+                return .samsungGalaxySUltra
+            }
+            if name.contains("note") {
+                return .samsungGalaxyNote
+            }
+            if name.contains("galaxy a") || name.hasPrefix("a") {
+                return .samsungGalaxyA
             }
             return .samsungGalaxyS
         }
 
+        // Google Pixel
         if name.contains("pixel") || name.contains("google") {
+            if name.contains("fold") {
+                return .googlePixelFold
+            }
+            if name.contains("pro") {
+                return .googlePixelPro
+            }
+            if name.contains("a"), !name.contains("max") {
+                return .googlePixelA
+            }
             return .googlePixel
         }
 
-        if name.contains("xiaomi") || name.contains("redmi") || name.contains("poco") || name.contains("mi ") {
-            return .xiaomi
+        // 小米系列
+        if name.contains("xiaomi") || name.contains("mi ") || name.hasPrefix("mi") {
+            if name.contains("ultra") {
+                return .xiaomiUltra
+            }
+            if name.contains("mix") {
+                return .xiaomiMix
+            }
+            return .xiaomiMi
+        }
+        if name.contains("redmi") {
+            if name.contains("note") {
+                return .redmiNote
+            }
+            if name.contains("k") || name.contains("turbo") {
+                return .redmiK
+            }
+            return .redmi
+        }
+        if name.contains("poco") {
+            return .poco
         }
 
+        // 一加系列
         if name.contains("oneplus") || name.contains("one plus") {
+            if name.contains("ace") {
+                return .oneplusAce
+            }
+            if name.contains("nord") {
+                return .oneplusNord
+            }
             return .oneplus
         }
 
-        if name.contains("oppo") || name.contains("vivo") || name.contains("realme") || name.contains("iqoo") {
-            return .oppoVivo
+        // OPPO 系列
+        if name.contains("oppo") {
+            if name.contains("find x") {
+                return .oppoFindX
+            }
+            if name.contains("find") {
+                return .oppoFind
+            }
+            if name.contains("reno") {
+                return .oppoReno
+            }
+            return .oppoA
+        }
+
+        // Vivo 系列
+        if name.contains("vivo") {
+            if name.contains("fold") {
+                return .vivoXFold
+            }
+            if name.contains("x"), !name.contains("max") {
+                return .vivoX
+            }
+            if name.contains("s") {
+                return .vivoS
+            }
+            return .vivoY
+        }
+        if name.contains("iqoo") {
+            if name.contains("neo") {
+                return .iqooNeo
+            }
+            return .iqoo
+        }
+
+        // Realme 系列
+        if name.contains("realme") {
+            if name.contains("gt") {
+                return .realmeGT
+            }
+            return .realme
+        }
+
+        // 华为系列
+        if name.contains("huawei") {
+            if name.contains("mate x") || name.contains("matex") {
+                return .huaweiMateX
+            }
+            if name.contains("mate") {
+                return .huaweiMate
+            }
+            if
+                name.contains("p"),
+                name.contains("p4") || name.contains("p5") || name.contains("p6") || name.contains("p7") {
+                return .huaweiP
+            }
+            if name.contains("nova") {
+                return .huaweiNova
+            }
+            return .huaweiP
+        }
+
+        // 荣耀系列
+        if name.contains("honor") {
+            if name.contains("magic") {
+                return .honorMagic
+            }
+            if name.contains("x") {
+                return .honorX
+            }
+            return .honor
+        }
+
+        // Sony 系列
+        if name.contains("sony") || name.contains("xperia") {
+            if name.contains("1") || name.contains("pro") {
+                return .sonyXperia1
+            }
+            if name.contains("5") {
+                return .sonyXperia5
+            }
+            return .sonyXperia10
+        }
+
+        // Motorola 系列
+        if name.contains("motorola") || name.contains("moto") {
+            if name.contains("razr") {
+                return .motorolaRazr
+            }
+            if name.contains("edge") {
+                return .motorolaEdge
+            }
+            return .motoG
+        }
+
+        // ASUS 系列
+        if name.contains("asus") || name.contains("rog") || name.contains("zenfone") {
+            if name.contains("rog") {
+                return .asusROG
+            }
+            return .asusZenfone
+        }
+
+        // 游戏手机系列
+        if name.contains("nubia") || name.contains("red magic") || name.contains("redmagic") {
+            return .nubiaRedMagic
+        }
+        if name.contains("black shark") || name.contains("blackshark") {
+            return .blackShark
+        }
+        if name.contains("legion") {
+            return .lenovoLegion
+        }
+
+        // 其他品牌
+        if name.contains("meizu") {
+            return .meizu
+        }
+        if name.contains("nothing") {
+            return .nothingPhone
+        }
+        if name.contains("tcl") {
+            return .tcl
+        }
+        if name.contains("zte") {
+            return .zte
+        }
+        if name.contains("infinix") || name.contains("tecno") || name.contains("itel") {
+            return .transsion
+        }
+
+        return .androidGeneric
+    }
+
+    /// 根据 Android 设备的品牌和型号精确识别设备型号
+    /// 这是更精确的识别方式，基于设备的 brand 属性
+    ///
+    /// - Parameter brand: 设备品牌（ro.product.brand）
+    /// - Parameter model: 设备型号（ro.product.model）
+    /// - Parameter marketName: 市场名称（ro.product.marketname）
+    /// - Returns: 对应的 DeviceModel
+    static func from(brand: String?, model: String?, marketName: String?) -> DeviceModel {
+        let modelLower = model?.lowercased() ?? ""
+        let marketLower = marketName?.lowercased() ?? ""
+
+        // 优先使用 brand 精确识别
+        if let brand = brand?.lowercased(), !brand.isEmpty {
+            // Samsung
+            if brand.contains("samsung") {
+                if modelLower.contains("fold") || marketLower.contains("fold") {
+                    return .samsungGalaxyFold
+                }
+                if modelLower.contains("flip") || marketLower.contains("flip") {
+                    return .samsungGalaxyFlip
+                }
+                if marketLower.contains("ultra") {
+                    return .samsungGalaxySUltra
+                }
+                if marketLower.contains("note") {
+                    return .samsungGalaxyNote
+                }
+                if modelLower.hasPrefix("a") || marketLower.contains("galaxy a") {
+                    return .samsungGalaxyA
+                }
+                return .samsungGalaxyS
+            }
+
+            // Google Pixel
+            if brand.contains("google") {
+                if modelLower.contains("fold") || marketLower.contains("fold") {
+                    return .googlePixelFold
+                }
+                if marketLower.contains("pro") {
+                    return .googlePixelPro
+                }
+                if marketLower.contains("a"), !marketLower.contains("max") {
+                    return .googlePixelA
+                }
+                return .googlePixel
+            }
+
+            // 小米系列
+            if brand == "xiaomi" {
+                if marketLower.contains("ultra") {
+                    return .xiaomiUltra
+                }
+                if marketLower.contains("mix") {
+                    return .xiaomiMix
+                }
+                return .xiaomiMi
+            }
+            if brand == "redmi" {
+                if marketLower.contains("note") {
+                    return .redmiNote
+                }
+                if marketLower.contains("k") || marketLower.contains("turbo") {
+                    return .redmiK
+                }
+                return .redmi
+            }
+            if brand == "poco" {
+                return .poco
+            }
+
+            // OnePlus
+            if brand.contains("oneplus") {
+                if marketLower.contains("ace") {
+                    return .oneplusAce
+                }
+                if marketLower.contains("nord") {
+                    return .oneplusNord
+                }
+                return .oneplus
+            }
+
+            // OPPO
+            if brand.contains("oppo") {
+                if marketLower.contains("find x") {
+                    return .oppoFindX
+                }
+                if marketLower.contains("find") {
+                    return .oppoFind
+                }
+                if marketLower.contains("reno") {
+                    return .oppoReno
+                }
+                return .oppoA
+            }
+
+            // Vivo
+            if brand.contains("vivo") {
+                if marketLower.contains("fold") {
+                    return .vivoXFold
+                }
+                if marketLower.contains("x"), !marketLower.contains("max") {
+                    return .vivoX
+                }
+                if marketLower.contains("s") {
+                    return .vivoS
+                }
+                return .vivoY
+            }
+            if brand.contains("iqoo") {
+                if marketLower.contains("neo") {
+                    return .iqooNeo
+                }
+                return .iqoo
+            }
+
+            // Realme
+            if brand.contains("realme") {
+                if marketLower.contains("gt") {
+                    return .realmeGT
+                }
+                return .realme
+            }
+
+            // 华为
+            if brand.contains("huawei") {
+                if marketLower.contains("mate x") {
+                    return .huaweiMateX
+                }
+                if marketLower.contains("mate") {
+                    return .huaweiMate
+                }
+                if marketLower.contains("nova") {
+                    return .huaweiNova
+                }
+                return .huaweiP
+            }
+
+            // 荣耀
+            if brand.contains("honor") {
+                if marketLower.contains("magic") {
+                    return .honorMagic
+                }
+                if marketLower.contains("x") {
+                    return .honorX
+                }
+                return .honor
+            }
+
+            // Sony
+            if brand.contains("sony") {
+                if marketLower.contains("1") || marketLower.contains("pro") {
+                    return .sonyXperia1
+                }
+                if marketLower.contains("5") {
+                    return .sonyXperia5
+                }
+                return .sonyXperia10
+            }
+
+            // Motorola
+            if brand.contains("motorola") {
+                if marketLower.contains("razr") {
+                    return .motorolaRazr
+                }
+                if marketLower.contains("edge") {
+                    return .motorolaEdge
+                }
+                return .motoG
+            }
+
+            // ASUS
+            if brand.contains("asus") {
+                if marketLower.contains("rog") {
+                    return .asusROG
+                }
+                return .asusZenfone
+            }
+
+            // 游戏手机
+            if brand.contains("nubia") {
+                return .nubiaRedMagic
+            }
+            if brand.contains("blackshark") || brand.contains("black shark") {
+                return .blackShark
+            }
+            if brand.contains("lenovo") && marketLower.contains("legion") {
+                return .lenovoLegion
+            }
+
+            // 其他品牌
+            if brand.contains("meizu") {
+                return .meizu
+            }
+            if brand.contains("nothing") {
+                return .nothingPhone
+            }
+            if brand.contains("tcl") {
+                return .tcl
+            }
+            if brand.contains("zte") {
+                return .zte
+            }
+            if brand.contains("infinix") || brand.contains("tecno") || brand.contains("itel") {
+                return .transsion
+            }
+        }
+
+        // 如果 brand 不可用，尝试从 marketName 或 model 推断
+        let fallbackName = (marketName ?? model ?? "").lowercased()
+        if !fallbackName.isEmpty {
+            return identifyAndroid(from: fallbackName)
         }
 
         return .androidGeneric

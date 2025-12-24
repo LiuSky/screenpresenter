@@ -183,11 +183,14 @@ final class UserPreferences {
         set { defaults.set(newValue, forKey: Keys.scrcpyBitrate) }
     }
 
-    /// 最大分辨率
+    /// 最大分辨率（0 表示不限制）
     var scrcpyMaxSize: Int {
         get {
-            let value = defaults.integer(forKey: Keys.scrcpyMaxSize)
-            return value > 0 ? value : 1920
+            // 需要区分"未设置"和"设置为 0（不限制）"
+            if defaults.object(forKey: Keys.scrcpyMaxSize) == nil {
+                return 1920 // 默认值
+            }
+            return defaults.integer(forKey: Keys.scrcpyMaxSize)
         }
         set { defaults.set(newValue, forKey: Keys.scrcpyMaxSize) }
     }

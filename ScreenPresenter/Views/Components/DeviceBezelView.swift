@@ -44,6 +44,9 @@ final class DeviceBezelView: NSView {
 
     private(set) var screenContentView: NSView!
 
+    /// 顶部特征覆盖视图（在 screenContentView 之上，用于显示刘海/灵动岛等）
+    private var featureOverlayView: NSView!
+
     // MARK: - 初始化
 
     override init(frame frameRect: NSRect) {
@@ -64,6 +67,17 @@ final class DeviceBezelView: NSView {
     ///   - device: iOS 设备信息
     ///   - aspectRatio: 屏幕内容区域的宽高比（如视频的宽高比），nil 时使用设备默认值
     func configure(device: IOSDevice, aspectRatio: CGFloat? = nil) {
+        deviceModel = device.deviceModel
+        screenAspectRatio = aspectRatio ?? deviceModel.defaultScreenAspectRatio
+        updateLayers()
+    }
+
+    /// 配置 Android 设备外观（推荐方式）
+    /// 基于 AndroidDevice 的 brand 精确识别设备型号
+    /// - Parameters:
+    ///   - device: Android 设备信息
+    ///   - aspectRatio: 屏幕内容区域的宽高比（如视频的宽高比），nil 时使用设备默认值
+    func configure(device: AndroidDevice, aspectRatio: CGFloat? = nil) {
         deviceModel = device.deviceModel
         screenAspectRatio = aspectRatio ?? deviceModel.defaultScreenAspectRatio
         updateLayers()
@@ -125,6 +139,13 @@ final class DeviceBezelView: NSView {
         screenContentView.layer?.masksToBounds = true
         screenContentView.layer?.cornerCurve = .continuous
         addSubview(screenContentView)
+
+        // 4. 顶部特征覆盖视图（在 screenContentView 之上）
+        // 使用独立的 view 确保顶部特征始终在屏幕内容之上
+        featureOverlayView = FeatureOverlayView()
+        featureOverlayView.wantsLayer = true
+        featureOverlayView.layer?.backgroundColor = NSColor.clear.cgColor
+        addSubview(featureOverlayView)
 
         updateLayers()
     }
@@ -278,8 +299,18 @@ final class DeviceBezelView: NSView {
         screenContentView.frame = screenRect
         screenContentView.layer?.cornerRadius = screenCornerRadius
 
+        // 4. 顶部特征覆盖视图 - 覆盖整个视图区域（与 self 相同坐标系）
+        featureOverlayView.frame = bounds
+
         updateTopFeature(screenRect: screenRect, deviceWidth: deviceWidth)
         updateSideButtons(deviceRect: deviceRect, deviceWidth: deviceWidth, deviceHeight: deviceHeight)
+    }
+
+    /// 添加顶部特征 layer（添加到 featureOverlayView 确保在 screenContentView 之上）
+    /// featureOverlayView 是在 screenContentView 之后添加的子视图，
+    /// AppKit 会确保它始终在 screenContentView 之上
+    private func addFeatureLayer(_ layer: CALayer) {
+        featureOverlayView.layer?.addSublayer(layer)
     }
 
     private func updateTopFeature(screenRect: CGRect, deviceWidth: CGFloat) {
@@ -322,7 +353,7 @@ final class DeviceBezelView: NSView {
                 xRadius: islandCornerRadius,
                 yRadius: islandCornerRadius
             ).cgPath
-            self.layer?.addSublayer(layer)
+            addFeatureLayer(layer)
             featureLayer = layer
 
         case let .notch(widthRatio, heightRatio):
@@ -344,7 +375,7 @@ final class DeviceBezelView: NSView {
             let layer = CAShapeLayer()
             layer.fillColor = NSColor.black.cgColor
             layer.path = notchPath
-            self.layer?.addSublayer(layer)
+            addFeatureLayer(layer)
             featureLayer = layer
 
         case let .punchHole(position, sizeRatio):
@@ -375,7 +406,7 @@ final class DeviceBezelView: NSView {
             layer.strokeColor = NSColor(white: 0.15, alpha: 1.0).cgColor
             layer.lineWidth = 0.5
             layer.path = NSBezierPath(ovalIn: holeRect).cgPath
-            self.layer?.addSublayer(layer)
+            addFeatureLayer(layer)
             featureLayer = layer
 
         case .homeButton:
@@ -563,6 +594,17 @@ final class DeviceBezelView: NSView {
     /// 屏幕圆角半径（用于 Metal 渲染遮罩）
     var screenCornerRadius: CGFloat {
         screenContentView.layer?.cornerRadius ?? 0
+    }
+}
+
+// MARK: - 顶部特征覆盖视图
+
+/// 透明的覆盖视图，用于显示顶部特征（刘海/灵动岛/打孔摄像头）
+/// 重写 hitTest 方法使鼠标事件穿透到下层视图
+private final class FeatureOverlayView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        // 返回 nil 使鼠标事件穿透到下层视图
+        nil
     }
 }
 

@@ -133,6 +133,12 @@ struct AndroidDevice: Identifiable, Equatable, Hashable {
         return "Android \(androidVersion)"
     }
 
+    /// 设备型号（用于 bezel 绘制）
+    /// 基于 brand 精确识别，比仅使用 displayName 更准确
+    var deviceModel: DeviceModel {
+        DeviceModel.from(brand: brand, model: model, marketName: marketName)
+    }
+
     /// 连接类型
     enum ConnectionType: String {
         case usb = "USB"

@@ -358,6 +358,11 @@ final class AppState {
         currentAndroidDevice?.displaySystemVersion
     }
 
+    /// Android SDK 版本（如 "31"）
+    var androidDeviceSdkVersion: String? {
+        currentAndroidDevice?.sdkVersion
+    }
+
     /// Android 设备状态
     var androidDeviceState: AndroidDeviceState? {
         currentAndroidDevice?.state

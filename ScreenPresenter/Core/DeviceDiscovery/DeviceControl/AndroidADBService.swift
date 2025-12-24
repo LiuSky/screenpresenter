@@ -273,10 +273,6 @@ final class AndroidADBService {
         let shellCommand =
             "CLASSPATH=\(serverPath) app_process / com.genymobile.scrcpy.Server \(arguments.joined(separator: " "))"
 
-        print("🚀 [ADB] 启动 scrcpy-server")
-        print("📋 [ADB] Shell命令: \(shellCommand)")
-        print("📋 [ADB] ADB路径: \(adbPath)")
-        print("📋 [ADB] 设备序列号: \(deviceSerial)")
         AppLogger.process.info("[ADB] 启动 scrcpy-server: \(shellCommand)")
 
         let process = Process()
@@ -290,25 +286,21 @@ final class AndroidADBService {
 
         try process.run()
 
-        print("✅ [ADB] scrcpy-server 进程已启动，PID: \(process.processIdentifier)")
         AppLogger.process.info("[ADB] scrcpy-server 进程已启动，PID: \(process.processIdentifier)")
 
         // 异步读取所有输出
         Task {
-            print("📖 [ADB] 开始读取 scrcpy-server 输出...")
+            AppLogger.process.debug("[ADB] 开始读取 scrcpy-server 输出...")
             for try await line in outputPipe.fileHandleForReading.bytes.lines {
-                // 使用 print 确保输出可见
-                print("📺 [scrcpy-server] \(line)")
                 // 根据内容判断日志级别
                 if line.contains("ERROR") || line.contains("Exception") || line.contains("error") {
                     AppLogger.process.error("[scrcpy-server] \(line)")
                 } else if line.contains("WARN") || line.contains("warning") {
                     AppLogger.process.warning("[scrcpy-server] \(line)")
                 } else {
-                    AppLogger.process.info("[scrcpy-server] \(line)")
+                    AppLogger.process.debug("[scrcpy-server] \(line)")
                 }
             }
-            print("📕 [scrcpy-server] 输出流已关闭")
             AppLogger.process.info("[scrcpy-server] 输出流已关闭")
         }
 
