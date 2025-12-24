@@ -281,11 +281,76 @@ extension DeviceModel {
 // MARK: - 边框参数
 
 extension DeviceModel {
-    /// 边框宽度比例（相对于设备宽度）
+    /// 金属外壳边框宽度比例（相对于设备宽度）
+    /// 金属边框是设备最外层的金属/钛金属框架的可视厚度
+    ///
+    /// 真实 iPhone 金属边框可视部分很薄，约 0.3-0.5mm
+    /// 设备宽约 72mm，比例 ≈ 0.4 / 72 ≈ 0.006
+    var metalFrameWidthRatio: CGFloat {
+        switch self {
+        // iPhone 17 Pro - 钛金属边框
+        case .iPhone17Pro:
+            0.006
+        // iPhone 17 - 铝金属边框
+        case .iPhone17:
+            0.007
+        // iPhone 16 Pro - 钛金属边框
+        case .iPhone16Pro:
+            0.006
+        // iPhone 16 - 铝金属边框
+        case .iPhone16:
+            0.007
+        // iPhone 15 Pro - 钛金属边框
+        case .iPhone15Pro:
+            0.006
+        // iPhone 15 - 铝金属边框
+        case .iPhone15:
+            0.007
+        // iPhone 14 Pro - 不锈钢边框
+        case .iPhone14Pro:
+            0.007
+        // iPhone 14 - 铝金属边框
+        case .iPhone14:
+            0.008
+        // iPhone 13 系列
+        case .iPhone13, .iPhone13Pro:
+            0.008
+        // iPhone 12 系列 - 直角边框设计
+        case .iPhone12:
+            0.008
+        // iPhone 11 系列 - 圆润边框
+        case .iPhone11:
+            0.010
+        // iPhone X/XS/XR
+        case .iPhoneX:
+            0.012
+        // iPhone SE - 较厚边框
+        case .iPhoneSE:
+            0.015
+        // iPhone Legacy
+        case .iPhoneLegacy:
+            0.015
+        // iPhone 通用
+        case .iPhoneGeneric:
+            0.007
+        // Android 系列
+        case .samsungGalaxyS, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
+            0.006
+        case .samsungGalaxyFold:
+            0.005
+        case .androidGeneric:
+            0.007
+        case .unknown:
+            0.007
+        }
+    }
+
+    /// 屏幕黑边框宽度比例（相对于设备宽度）
+    /// 屏幕黑边框是金属边框内侧、屏幕显示区域外侧的黑色边框
     /// 数据来源: 实测数据, screensizes.app
     ///
-    /// | 设备 | 边框 (mm) | 设备宽 (mm) | 比例 |
-    /// |-----|----------|-----------|------|
+    /// | 设备 | 黑边框 (mm) | 设备宽 (mm) | 比例 |
+    /// |-----|------------|-----------|------|
     /// | iPhone 16 Pro | 1.15 | 71.5 | 0.0161 |
     /// | iPhone 16 | 1.85 | 71.6 | 0.0258 |
     /// | iPhone 15 Pro | 1.55 | 70.6 | 0.0220 |
@@ -297,7 +362,7 @@ extension DeviceModel {
     /// | iPhone 11 | 3.50 | 75.7 | 0.0462 |
     /// | iPhone X | 4.00 | 70.9 | 0.0564 |
     /// | iPhone SE | 4.00 | 67.3 | 0.0594 |
-    var bezelWidthRatio: CGFloat {
+    var screenBezelWidthRatio: CGFloat {
         switch self {
         // iPhone 17 Pro - 预计 ~1.0mm (更窄边框)
         case .iPhone17Pro:
@@ -354,6 +419,11 @@ extension DeviceModel {
         case .unknown:
             0.025
         }
+    }
+
+    /// 总边框宽度比例（金属边框 + 屏幕黑边框）
+    var totalBezelWidthRatio: CGFloat {
+        metalFrameWidthRatio + screenBezelWidthRatio
     }
 
     /// 边框圆角半径比例（相对于设备宽度）
@@ -598,114 +668,145 @@ extension DeviceModel {
         NSColor(white: 0.32, alpha: 1.0)
     }
 
+    /// 侧边按钮布局
+    /// 位置参数基于真实设备测量数据，参考 iPhone 17 Pro SVG 矢量图
+    /// - topRatio: 按钮顶部距离设备顶部的比例
+    /// - heightRatio: 按钮高度占设备高度的比例
+    ///
+    /// iPhone 17 Pro 参考数据 (设备高度 150mm):
+    /// - Action Button: y=30.69mm, h=6.97mm → top=0.205, height=0.046
+    /// - Volume Up: y=42.77mm, h=11.24mm → top=0.285, height=0.075
+    /// - Volume Down: y=57.00mm, h=11.24mm → top=0.380, height=0.075
+    /// - Power: y=46.58mm, h=17.66mm → top=0.311, height=0.118
+    ///
+    /// 注意: Camera Control 按钮在正面视觉上不可见，不绘制
     var sideButtons: SideButtons {
         switch self {
-        // iPhone 17 Pro - 预计继续有操作按钮和相机控制按钮
+        // iPhone 17 Pro - 操作按钮 + 音量按钮（基于 SVG 精确测量）
         case .iPhone17Pro:
             SideButtons(
                 left: [
-                    .init(type: .actionButton, topRatio: 0.18, heightRatio: 0.038, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.065, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.33, heightRatio: 0.065, width: 3),
+                    .init(type: .actionButton, topRatio: 0.205, heightRatio: 0.046, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.285, heightRatio: 0.075, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.380, heightRatio: 0.075, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.25, heightRatio: 0.095, width: 3),
-                    .init(type: .cameraControl, topRatio: 0.42, heightRatio: 0.030, width: 3),
+                    .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
                 ]
             )
-        // iPhone 17 - 预计有操作按钮和相机控制按钮
+        // iPhone 17 - 操作按钮 + 音量按钮（与 17 Pro 相同布局）
         case .iPhone17:
             SideButtons(
                 left: [
-                    .init(type: .actionButton, topRatio: 0.18, heightRatio: 0.038, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.065, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.33, heightRatio: 0.065, width: 3),
+                    .init(type: .actionButton, topRatio: 0.205, heightRatio: 0.046, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.285, heightRatio: 0.075, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.380, heightRatio: 0.075, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.25, heightRatio: 0.095, width: 3),
-                    .init(type: .cameraControl, topRatio: 0.42, heightRatio: 0.030, width: 3),
+                    .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
                 ]
             )
-        // iPhone 16 Pro - 有操作按钮和相机控制按钮
+        // iPhone 16 Pro - 操作按钮 + 音量按钮（与 17 Pro 相似布局）
         case .iPhone16Pro:
             SideButtons(
                 left: [
-                    .init(type: .actionButton, topRatio: 0.18, heightRatio: 0.038, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.065, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.33, heightRatio: 0.065, width: 3),
+                    .init(type: .actionButton, topRatio: 0.205, heightRatio: 0.046, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.285, heightRatio: 0.075, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.380, heightRatio: 0.075, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.25, heightRatio: 0.095, width: 3),
-                    .init(type: .cameraControl, topRatio: 0.42, heightRatio: 0.030, width: 3),
+                    .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
                 ]
             )
-        // iPhone 16 标准版 - 有相机控制按钮
+        // iPhone 16 标准版 - 操作按钮 + 音量按钮
         case .iPhone16:
             SideButtons(
                 left: [
-                    .init(type: .actionButton, topRatio: 0.18, heightRatio: 0.038, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.065, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.33, heightRatio: 0.065, width: 3),
+                    .init(type: .actionButton, topRatio: 0.205, heightRatio: 0.046, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.285, heightRatio: 0.075, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.380, heightRatio: 0.075, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.25, heightRatio: 0.095, width: 3),
-                    .init(type: .cameraControl, topRatio: 0.42, heightRatio: 0.030, width: 3),
+                    .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
                 ]
             )
         // iPhone 15 Pro - 操作按钮替代静音开关
         case .iPhone15Pro:
             SideButtons(
                 left: [
-                    .init(type: .actionButton, topRatio: 0.18, heightRatio: 0.038, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.065, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.33, heightRatio: 0.065, width: 3),
+                    .init(type: .actionButton, topRatio: 0.205, heightRatio: 0.046, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.285, heightRatio: 0.075, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.380, heightRatio: 0.075, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.25, heightRatio: 0.095, width: 3),
+                    .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
                 ]
             )
-        // iPhone 15/14 Pro/14/13/12/11/X - 静音开关
-        case .iPhone15, .iPhone14Pro, .iPhone14, .iPhone13, .iPhone13Pro, .iPhone12, .iPhone11, .iPhoneX,
-             .iPhoneGeneric:
+        // iPhone 15/14 Pro/14/13/12 - 静音开关 + 音量按钮
+        case .iPhone15, .iPhone14Pro, .iPhone14, .iPhone13, .iPhone13Pro, .iPhone12:
             SideButtons(
                 left: [
-                    .init(type: .silentSwitch, topRatio: 0.18, heightRatio: 0.035, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.065, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.33, heightRatio: 0.065, width: 3),
+                    .init(type: .silentSwitch, topRatio: 0.195, heightRatio: 0.030, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.270, heightRatio: 0.070, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.360, heightRatio: 0.070, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.25, heightRatio: 0.095, width: 3),
+                    .init(type: .power, topRatio: 0.300, heightRatio: 0.110, width: 3),
                 ]
             )
-        // iPhone SE / Legacy
+        // iPhone 11/X 系列 - 按钮位置稍有不同
+        case .iPhone11, .iPhoneX:
+            SideButtons(
+                left: [
+                    .init(type: .silentSwitch, topRatio: 0.175, heightRatio: 0.028, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.245, heightRatio: 0.065, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.330, heightRatio: 0.065, width: 3),
+                ],
+                right: [
+                    .init(type: .power, topRatio: 0.280, heightRatio: 0.100, width: 3),
+                ]
+            )
+        // iPhone SE / Legacy - 按钮位置更靠上
         case .iPhoneSE, .iPhoneLegacy:
             SideButtons(
                 left: [
-                    .init(type: .silentSwitch, topRatio: 0.12, heightRatio: 0.030, width: 3),
-                    .init(type: .volumeUp, topRatio: 0.20, heightRatio: 0.055, width: 3),
-                    .init(type: .volumeDown, topRatio: 0.28, heightRatio: 0.055, width: 3),
+                    .init(type: .silentSwitch, topRatio: 0.135, heightRatio: 0.025, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.195, heightRatio: 0.055, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.270, heightRatio: 0.055, width: 3),
                 ],
                 right: [
-                    .init(type: .power, topRatio: 0.12, heightRatio: 0.055, width: 3),
+                    .init(type: .power, topRatio: 0.135, heightRatio: 0.055, width: 3),
                 ]
             )
-        // Android 系列
+        // iPhone 通用
+        case .iPhoneGeneric:
+            SideButtons(
+                left: [
+                    .init(type: .silentSwitch, topRatio: 0.195, heightRatio: 0.030, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.270, heightRatio: 0.070, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.360, heightRatio: 0.070, width: 3),
+                ],
+                right: [
+                    .init(type: .power, topRatio: 0.300, heightRatio: 0.110, width: 3),
+                ]
+            )
+        // Android 系列 - 按钮在右侧
         case .samsungGalaxyS, .samsungGalaxyFold, .googlePixel, .xiaomi, .oneplus, .oppoVivo:
             SideButtons(
                 left: [],
                 right: [
-                    .init(type: .volumeUp, topRatio: 0.22, heightRatio: 0.08, width: 2.5),
-                    .init(type: .volumeDown, topRatio: 0.32, heightRatio: 0.08, width: 2.5),
-                    .init(type: .power, topRatio: 0.44, heightRatio: 0.055, width: 2.5),
+                    .init(type: .volumeUp, topRatio: 0.250, heightRatio: 0.075, width: 2.5),
+                    .init(type: .volumeDown, topRatio: 0.345, heightRatio: 0.075, width: 2.5),
+                    .init(type: .power, topRatio: 0.460, heightRatio: 0.050, width: 2.5),
                 ]
             )
         case .androidGeneric:
             SideButtons(
                 left: [],
                 right: [
-                    .init(type: .volumeUp, topRatio: 0.25, heightRatio: 0.07, width: 2.5),
-                    .init(type: .volumeDown, topRatio: 0.34, heightRatio: 0.07, width: 2.5),
-                    .init(type: .power, topRatio: 0.45, heightRatio: 0.05, width: 2.5),
+                    .init(type: .volumeUp, topRatio: 0.260, heightRatio: 0.070, width: 2.5),
+                    .init(type: .volumeDown, topRatio: 0.350, heightRatio: 0.070, width: 2.5),
+                    .init(type: .power, topRatio: 0.460, heightRatio: 0.050, width: 2.5),
                 ]
             )
         case .unknown:
@@ -787,7 +888,135 @@ extension DeviceModel {
 // MARK: - 设备识别
 
 extension DeviceModel {
-    /// 根据设备名称识别设备型号
+    /// 根据 iOS 设备的 productType（型号标识符）识别设备型号
+    /// 这是最精确的识别方式，基于设备硬件标识
+    ///
+    /// - Parameter productType: iOS 设备型号标识符，如 "iPhone17,1"
+    /// - Returns: 对应的 DeviceModel
+    ///
+    /// 型号标识符参考：
+    /// - iPhone 18.x = iPhone 17 系列 (2025)
+    /// - iPhone 17.x = iPhone 16 系列 (2024)
+    /// - iPhone 16.x = iPhone 15 系列 (2023)
+    /// - iPhone 15.x = iPhone 14 系列 (2022)
+    /// - iPhone 14.x = iPhone 13 系列 (2021)
+    /// - iPhone 13.x = iPhone 12 系列 (2020)
+    /// - iPhone 12.x = iPhone 11 系列 (2019)
+    /// - iPhone 11.x = iPhone XS/XR 系列 (2018)
+    /// - iPhone 10.x = iPhone X/8 系列 (2017)
+    static func from(productType: String?) -> DeviceModel {
+        guard let type = productType, !type.isEmpty else {
+            return .iPhoneGeneric
+        }
+
+        // 提取主版本号（如 "iPhone17,1" -> 17）
+        let components = type.replacingOccurrences(of: "iPhone", with: "").split(separator: ",")
+        guard let majorStr = components.first, let major = Int(majorStr) else {
+            // 尝试名称匹配作为 fallback
+            return identifyiPhone(from: type.lowercased())
+        }
+
+        let minor = components.count > 1 ? Int(components[1]) ?? 0 : 0
+
+        switch major {
+        // iPhone 18.x = iPhone 17 系列 (2025)
+        case 18:
+            switch minor {
+            case 1, 2: // iPhone 17 Pro / Pro Max
+                return .iPhone17Pro
+            default: // iPhone 17 / Plus / Air
+                return .iPhone17
+            }
+
+        // iPhone 17.x = iPhone 16 系列 (2024)
+        case 17:
+            switch minor {
+            case 1, 2: // iPhone 16 Pro / Pro Max
+                return .iPhone16Pro
+            default: // iPhone 16 / Plus
+                return .iPhone16
+            }
+
+        // iPhone 16.x = iPhone 15 系列 (2023)
+        case 16:
+            switch minor {
+            case 1, 2: // iPhone 15 Pro / Pro Max
+                return .iPhone15Pro
+            default: // iPhone 15 / Plus
+                return .iPhone15
+            }
+
+        // iPhone 15.x = iPhone 14 系列 (2022)
+        case 15:
+            switch minor {
+            case 2, 3: // iPhone 14 Pro / Pro Max
+                return .iPhone14Pro
+            case 4, 5: // iPhone 14 / Plus
+                return .iPhone14
+            default:
+                return .iPhone14
+            }
+
+        // iPhone 14.x = iPhone 13 系列 (2021) + iPhone SE 3 + iPhone 14 标准版
+        case 14:
+            switch minor {
+            case 2, 3: // iPhone 13 Pro / Pro Max
+                return .iPhone13Pro
+            case 4, 5: // iPhone 13 mini / iPhone 13
+                return .iPhone13
+            case 6: // iPhone SE (3rd gen)
+                return .iPhoneSE
+            case 7, 8: // iPhone 14 / Plus (特殊：使用 iPhone14,x 标识)
+                return .iPhone14
+            default:
+                return .iPhone13
+            }
+
+        // iPhone 13.x = iPhone 12 系列 (2020)
+        case 13:
+            switch minor {
+            case 3, 4: // iPhone 12 Pro / Pro Max
+                return .iPhone12
+            default: // iPhone 12 mini / iPhone 12
+                return .iPhone12
+            }
+
+        // iPhone 12.x = iPhone 11 系列 (2019) + iPhone SE 2
+        case 12:
+            switch minor {
+            case 8: // iPhone SE (2nd gen)
+                return .iPhoneSE
+            default: // iPhone 11 / Pro / Pro Max
+                return .iPhone11
+            }
+
+        // iPhone 11.x = iPhone XS/XR 系列 (2018)
+        case 11:
+            return .iPhoneX
+
+        // iPhone 10.x = iPhone X/8 系列 (2017)
+        case 10:
+            switch minor {
+            case 3, 6: // iPhone X
+                return .iPhoneX
+            default: // iPhone 8 / 8 Plus
+                return .iPhoneLegacy
+            }
+
+        // 更早的设备
+        default:
+            if major >= 9 {
+                return .iPhoneLegacy
+            }
+            return .iPhoneGeneric
+        }
+    }
+
+    /// 根据设备名称识别设备型号（fallback 方式）
+    /// - Parameters:
+    ///   - deviceName: 设备名称
+    ///   - platform: 设备平台
+    /// - Returns: 对应的 DeviceModel
     static func identify(from deviceName: String?, platform: DevicePlatform) -> DeviceModel {
         guard let name = deviceName?.lowercased() else {
             return platform == .ios ? .iPhoneGeneric : .androidGeneric

@@ -537,6 +537,37 @@ final class DevicePanelView: NSView {
     ///   - onStart: 开始捕获回调
     ///   - onRefresh: 刷新设备信息回调
     func showConnected(
+        device: IOSDevice,
+        onStart: @escaping () -> Void,
+        onRefresh: ((@escaping () -> Void) -> Void)? = nil
+    ) {
+        showConnected(
+            deviceName: device.displayName,
+            platform: .ios,
+            modelName: device.displayModelName,
+            systemVersion: device.productVersion,
+            buildVersion: device.buildVersion,
+            userPrompt: device.userPrompt,
+            deviceState: device.state,
+            iosDevice: device,
+            onStart: onStart,
+            onRefresh: onRefresh
+        )
+    }
+
+    /// 显示已连接状态（通用方式）
+    /// - Parameters:
+    ///   - deviceName: 设备名称
+    ///   - platform: 设备平台
+    ///   - modelName: 设备型号名称
+    ///   - systemVersion: 系统版本
+    ///   - buildVersion: build 版本
+    ///   - userPrompt: 用户提示信息（如需要信任、解锁等）
+    ///   - deviceState: 设备状态
+    ///   - iosDevice: iOS 设备实例（用于精确识别设备型号）
+    ///   - onStart: 开始捕获回调
+    ///   - onRefresh: 刷新设备信息回调
+    func showConnected(
         deviceName: String,
         platform: DevicePlatform,
         modelName: String? = nil,
@@ -544,6 +575,7 @@ final class DevicePanelView: NSView {
         buildVersion: String? = nil,
         userPrompt: String? = nil,
         deviceState: IOSDevice.State? = nil,
+        iosDevice: IOSDevice? = nil,
         onStart: @escaping () -> Void,
         onRefresh: ((@escaping () -> Void) -> Void)? = nil
     ) {
@@ -554,8 +586,12 @@ final class DevicePanelView: NSView {
         currentUserPrompt = userPrompt
         stopFPSUpdateTimer()
 
-        // 根据设备名称配置对应的边框
-        configureBezel(for: platform, deviceName: deviceName)
+        // 配置边框：优先使用 IOSDevice 的 productType 精确识别
+        if let device = iosDevice {
+            configureBezel(for: device)
+        } else {
+            configureBezel(for: platform, deviceName: deviceName)
+        }
 
         // 隐藏渲染视图，显示状态容器
         renderView.isHidden = true
@@ -645,7 +681,57 @@ final class DevicePanelView: NSView {
         return parts.joined(separator: " · ")
     }
 
-    /// 显示捕获中状态
+    /// 显示 iOS 设备捕获中状态（推荐方式，使用 productType 精确识别）
+    func showCapturing(
+        device: IOSDevice,
+        fps: Double,
+        resolution: CGSize,
+        onStop: @escaping () -> Void
+    ) {
+        currentState = .capturing
+        currentPlatform = .ios
+        onStopAction = onStop
+
+        // 保存设备信息用于更新状态栏
+        currentDeviceDisplayName = device.displayName
+        currentDeviceModelName = device.displayModelName
+
+        // 使用 IOSDevice 的 productType 精确配置边框
+        configureBezel(for: device, aspectRatio: resolution)
+
+        // 显示渲染视图，隐藏状态容器
+        renderView.isHidden = false
+        statusContainerView.isHidden = true
+
+        // 停止加载指示器（虽然 statusContainerView 已隐藏）
+        loadingIndicator.stopAnimation(nil)
+
+        // 初始隐藏 captureBarView，只有鼠标悬停时才显示
+        captureBarView.isHidden = !isMouseInside
+        captureBarView.alphaValue = isMouseInside ? 1.0 : 0.0
+
+        // 更新捕获栏位置
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        updateCaptureBarPosition()
+
+        // 更新捕获状态文本：显示设备型号和名称
+        updateCaptureStatusText()
+
+        if resolution.width > 0, resolution.height > 0 {
+            resolutionLabel.stringValue = "\(Int(resolution.width))×\(Int(resolution.height))"
+        } else {
+            resolutionLabel.stringValue = ""
+        }
+
+        updateFPS(fps)
+        addPulseAnimation(to: captureIndicator)
+
+        // 启动 FPS 更新定时器
+        startFPSUpdateTimer()
+    }
+
+    /// 显示捕获中状态（通用方式，通过设备名称识别）
     func showCapturing(
         deviceName: String,
         modelName: String?,
@@ -844,6 +930,16 @@ final class DevicePanelView: NSView {
             bezelView.configure(deviceName: deviceName, platform: platform, aspectRatio: size.width / size.height)
         } else {
             bezelView.configure(deviceName: deviceName, platform: platform)
+        }
+    }
+
+    /// 配置 iOS 设备的边框（使用 productType 精确识别）
+    private func configureBezel(for device: IOSDevice, aspectRatio: CGSize? = nil) {
+        currentDeviceName = device.displayName
+        if let size = aspectRatio, size.width > 0, size.height > 0 {
+            bezelView.configure(device: device, aspectRatio: size.width / size.height)
+        } else {
+            bezelView.configure(device: device)
         }
     }
 

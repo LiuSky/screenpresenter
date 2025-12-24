@@ -490,7 +490,7 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
         }
     }
 
-    /// 检查设备状态（锁屏、占用等）是否发生变化
+    /// 检查设备状态（锁屏、占用、型号等）是否发生变化
     private func hasDeviceStateChanges(_ newDevices: [IOSDevice]) -> Bool {
         for newDevice in newDevices {
             // 使用 id 匹配设备（FBDeviceControl 模式下是真实 UDID，fallback 模式下是 avUniqueID）
@@ -498,11 +498,13 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
                 continue
             }
 
-            // 比较关键状态
+            // 比较关键状态和型号信息
+            // productType 变化会影响 bezel 样式，需要触发 UI 更新
             if
                 newDevice.state != oldDevice.state ||
                 newDevice.isOccupied != oldDevice.isOccupied ||
-                newDevice.userPrompt != oldDevice.userPrompt {
+                newDevice.userPrompt != oldDevice.userPrompt ||
+                newDevice.productType != oldDevice.productType {
                 return true
             }
         }

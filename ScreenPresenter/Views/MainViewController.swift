@@ -425,38 +425,29 @@ final class MainViewController: NSViewController {
             return
         }
 
-        if appState.iosCapturing {
+        if appState.iosCapturing, let device = appState.currentIOSDevice {
             // 设置帧回调，每个新帧到来时更新纹理
             appState.iosDeviceSource?.onFrame = { [weak panel] pixelBuffer in
                 panel?.renderView.updateTexture(from: pixelBuffer)
             }
 
+            // 使用 IOSDevice 的 productType 精确识别设备型号
             panel.showCapturing(
-                deviceName: appState.iosDeviceName ?? "iPhone",
-                modelName: appState.iosDeviceModelName,
-                platform: .ios,
+                device: device,
                 fps: panel.renderView.fps,
                 resolution: appState.iosDeviceSource?.captureSize ?? .zero,
                 onStop: { [weak self] in
                     self?.stopIOSCapture()
                 }
             )
-        } else if appState.iosConnected {
+        } else if let device = appState.currentIOSDevice {
             // 清除帧回调
             appState.iosDeviceSource?.onFrame = nil
 
             // 获取设备详细信息
-            let device = appState.iosDeviceProvider.devices.first
-            let deviceState = device?.state
-
+            // 使用 IOSDevice 的 productType 精确识别设备型号
             panel.showConnected(
-                deviceName: appState.iosDeviceName ?? "iPhone",
-                platform: .ios,
-                modelName: device?.displayModelName,
-                systemVersion: device?.productVersion,
-                buildVersion: device?.buildVersion,
-                userPrompt: appState.iosDeviceUserPrompt,
-                deviceState: deviceState,
+                device: device,
                 onStart: { [weak self] in
                     self?.startIOSCapture()
                 },

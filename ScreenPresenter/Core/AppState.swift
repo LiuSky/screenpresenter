@@ -226,7 +226,9 @@ final class AppState {
 
         if let device = currentDevice {
             // 设备已连接
-            if iosDeviceSource == nil || iosDeviceSource?.iosDevice.id != device.id {
+            // 使用 avUniqueID 比较设备（保持不变），而不是 id（可能从 avUniqueID 变成真实 UDID）
+            // 这样当设备信息被 enriched() 增强时，不会错误地停止正在运行的捕获
+            if iosDeviceSource == nil || iosDeviceSource?.iosDevice.avUniqueID != device.avUniqueID {
                 // 断开旧设备
                 if let oldSource = iosDeviceSource {
                     await oldSource.stopCapture()
@@ -302,24 +304,29 @@ final class AppState {
 
     // MARK: - 计算属性
 
+    /// 当前 iOS 设备（用于获取完整设备信息）
+    var currentIOSDevice: IOSDevice? {
+        iosDeviceProvider.devices.first
+    }
+
     /// iOS 是否已连接
     var iosConnected: Bool {
-        !iosDeviceProvider.devices.isEmpty
+        currentIOSDevice != nil
     }
 
     /// iOS 设备名称（优先使用 FBDeviceControl 增强的名称）
     var iosDeviceName: String? {
-        iosDeviceProvider.devices.first?.displayName
+        currentIOSDevice?.displayName
     }
 
     /// iOS 设备型号名称
     var iosDeviceModelName: String? {
-        iosDeviceProvider.devices.first?.displayModelName
+        currentIOSDevice?.displayModelName
     }
 
     /// iOS 设备用户提示（信任状态、占用状态等）
     var iosDeviceUserPrompt: String? {
-        iosDeviceProvider.devices.first?.userPrompt
+        currentIOSDevice?.userPrompt
     }
 
     /// iOS 是否正在捕获

@@ -121,6 +121,12 @@ struct IOSDevice: Identifiable, Hashable {
         IOSDeviceStateMapper.userPrompt(for: state, occupiedBy: occupiedBy)
     }
 
+    /// 设备外观配置（用于 bezel 绘制）
+    /// 基于 productType 精确识别设备型号
+    var deviceModel: DeviceModel {
+        DeviceModel.from(productType: productType)
+    }
+
     // MARK: - 连接类型枚举
 
     enum ConnectionType: String {

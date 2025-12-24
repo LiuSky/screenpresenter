@@ -15,7 +15,7 @@
 		A44133412EF93201003DCDD3 /* UserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A441330E2EF93201003DCDD3 /* UserPreferences.swift */; };
 		A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */; };
 		A44133462EF93201003DCDD3 /* DeviceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133062EF93201003DCDD3 /* DeviceSource.swift */; };
-		A44133472EF93201003DCDD3 /* FramePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133192EF93201003DCDD3 /* FramePipeline.swift */; };
+		A44133472EF93201003DCDD3 /* CapturedFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133192EF93201003DCDD3 /* CapturedFrame.swift */; };
 		A44133482EF93201003DCDD3 /* AndroidDeviceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133042EF93201003DCDD3 /* AndroidDeviceProvider.swift */; };
 		A441334D2EF93201003DCDD3 /* ToolchainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133112EF93201003DCDD3 /* ToolchainManager.swift */; };
 		A44133552EF93201003DCDD3 /* AndroidDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44133032EF93201003DCDD3 /* AndroidDevice.swift */; };
@@ -58,7 +58,7 @@
 		A441330E2EF93201003DCDD3 /* UserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferences.swift; sourceTree = "<group>"; };
 		A44133102EF93201003DCDD3 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
 		A44133112EF93201003DCDD3 /* ToolchainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolchainManager.swift; sourceTree = "<group>"; };
-		A44133192EF93201003DCDD3 /* FramePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePipeline.swift; sourceTree = "<group>"; };
+		A44133192EF93201003DCDD3 /* CapturedFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapturedFrame.swift; sourceTree = "<group>"; };
 		A441331F2EF93201003DCDD3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		A44133222EF93201003DCDD3 /* Tools */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tools; sourceTree = "<group>"; };
 		A44133242EF93201003DCDD3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -171,7 +171,7 @@
 		A441331E2EF93201003DCDD3 /* Rendering */ = {
 			isa = PBXGroup;
 			children = (
-				A44133192EF93201003DCDD3 /* FramePipeline.swift */,
+				A44133192EF93201003DCDD3 /* CapturedFrame.swift */,
 				B1000002000000000002 /* MetalRenderer.swift */,
 				B1000002000000000003 /* MetalRenderView.swift */,
 				B1000002000000000014 /* SingleDeviceRenderView.swift */,
@@ -336,7 +336,7 @@
 				A44133412EF93201003DCDD3 /* UserPreferences.swift in Sources */,
 				A44133452EF93201003DCDD3 /* ScrcpyDeviceSource.swift in Sources */,
 				A44133462EF93201003DCDD3 /* DeviceSource.swift in Sources */,
-				A44133472EF93201003DCDD3 /* FramePipeline.swift in Sources */,
+				A44133472EF93201003DCDD3 /* CapturedFrame.swift in Sources */,
 				A44133482EF93201003DCDD3 /* AndroidDeviceProvider.swift in Sources */,
 				A441334D2EF93201003DCDD3 /* ToolchainManager.swift in Sources */,
 				A44133552EF93201003DCDD3 /* AndroidDevice.swift in Sources */,
