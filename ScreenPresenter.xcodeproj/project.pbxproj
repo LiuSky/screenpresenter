@@ -42,6 +42,11 @@
 		F1000001000000000001 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000002000000000001 /* Colors.swift */; };
 		FB000001000000000001 /* IOSDeviceStateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000002000000000001 /* IOSDeviceStateMapper.swift */; };
 		FB000001000000000005 /* FBDeviceControlService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000002000000000006 /* FBDeviceControlService.swift */; };
+		G1000001000000000001 /* AndroidADBService.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000001 /* AndroidADBService.swift */; };
+		G1000001000000000002 /* ScrcpyServerLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000002 /* ScrcpyServerLauncher.swift */; };
+		G1000001000000000003 /* ScrcpySocketAcceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000003 /* ScrcpySocketAcceptor.swift */; };
+		G1000001000000000004 /* ScrcpyVideoStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000004 /* ScrcpyVideoStreamParser.swift */; };
+		G1000001000000000005 /* VideoToolboxDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000005 /* VideoToolboxDecoder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -82,6 +87,11 @@
 		F1000002000000000001 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		FB000002000000000001 /* IOSDeviceStateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDeviceStateMapper.swift; sourceTree = "<group>"; };
 		FB000002000000000006 /* FBDeviceControlService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FBDeviceControlService.swift; sourceTree = "<group>"; };
+		G1000002000000000001 /* AndroidADBService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidADBService.swift; sourceTree = "<group>"; };
+		G1000002000000000002 /* ScrcpyServerLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyServerLauncher.swift; sourceTree = "<group>"; };
+		G1000002000000000003 /* ScrcpySocketAcceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpySocketAcceptor.swift; sourceTree = "<group>"; };
+		G1000002000000000004 /* ScrcpyVideoStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyVideoStreamParser.swift; sourceTree = "<group>"; };
+		G1000002000000000005 /* VideoToolboxDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoToolboxDecoder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +157,7 @@
 				A44133082EF93201003DCDD3 /* ScrcpyDeviceSource.swift */,
 				2C66B6DF8C1E31F829EDE370 /* IOSDeviceSource.swift */,
 				8FA214349613EC0729564B6E /* IOSScreenMirrorActivator.swift */,
+				G1000003000000000001 /* Scrcpy */,
 			);
 			path = DeviceSource;
 			sourceTree = "<group>";
@@ -175,6 +186,7 @@
 				B1000002000000000002 /* MetalRenderer.swift */,
 				B1000002000000000003 /* MetalRenderView.swift */,
 				B1000002000000000014 /* SingleDeviceRenderView.swift */,
+				G1000002000000000005 /* VideoToolboxDecoder.swift */,
 			);
 			path = Rendering;
 			sourceTree = "<group>";
@@ -246,9 +258,20 @@
 		FB000003000000000001 /* DeviceControl */ = {
 			isa = PBXGroup;
 			children = (
+				G1000002000000000001 /* AndroidADBService.swift */,
 				FB000002000000000006 /* FBDeviceControlService.swift */,
 			);
 			path = DeviceControl;
+			sourceTree = "<group>";
+		};
+		G1000003000000000001 /* Scrcpy */ = {
+			isa = PBXGroup;
+			children = (
+				G1000002000000000002 /* ScrcpyServerLauncher.swift */,
+				G1000002000000000003 /* ScrcpySocketAcceptor.swift */,
+				G1000002000000000004 /* ScrcpyVideoStreamParser.swift */,
+			);
+			path = Scrcpy;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -346,6 +369,11 @@
 				87C2CDD72DD49C69CE97F0CB /* IOSDeviceProvider.swift in Sources */,
 				DD604589504C2702EA91DEAD /* IOSDeviceSource.swift in Sources */,
 				908C36A37CB44D844E526D8E /* IOSScreenMirrorActivator.swift in Sources */,
+				G1000001000000000001 /* AndroidADBService.swift in Sources */,
+				G1000001000000000002 /* ScrcpyServerLauncher.swift in Sources */,
+				G1000001000000000003 /* ScrcpySocketAcceptor.swift in Sources */,
+				G1000001000000000004 /* ScrcpyVideoStreamParser.swift in Sources */,
+				G1000001000000000005 /* VideoToolboxDecoder.swift in Sources */,
 				B1000001000000000001 /* AppState.swift in Sources */,
 				B1000001000000000002 /* MetalRenderer.swift in Sources */,
 				B1000001000000000003 /* MetalRenderView.swift in Sources */,

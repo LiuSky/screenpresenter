@@ -88,23 +88,71 @@ final class ToolchainManager {
         return Bundle.main.path(forResource: "scrcpy-server", ofType: nil, inDirectory: "tools")
     }
 
-    /// scrcpy-server 路径（优先使用内嵌版本）
+    /// scrcpy-server 路径（优先级：自定义路径 > 内嵌版本 > 系统版本）
+    /// 如果路径是目录，会查找其中的 scrcpy-server.jar 文件
     var scrcpyServerPath: String? {
-        if let bundled = bundledScrcpyServerPath, FileManager.default.fileExists(atPath: bundled) {
-            AppLogger.app.debug("使用内嵌 scrcpy-server: \(bundled)")
-            return bundled
+        // 1. 检查自定义路径
+        if
+            UserPreferences.shared.useCustomScrcpyServerPath,
+            let customPath = UserPreferences.shared.customScrcpyServerPath,
+            !customPath.isEmpty,
+            let validPath = validateServerPath(customPath) {
+            AppLogger.app.debug("使用自定义 scrcpy-server: \(validPath)")
+            return validPath
         }
-        // 系统安装的 scrcpy 会在 share/scrcpy 目录下
+
+        // 2. 检查内嵌版本
+        if let bundled = bundledScrcpyServerPath {
+            if let validPath = validateServerPath(bundled) {
+                AppLogger.app.debug("使用内嵌 scrcpy-server: \(validPath)")
+                return validPath
+            }
+        }
+
+        // 3. 系统安装的 scrcpy 会在 share/scrcpy 目录下
         if let systemPath = systemScrcpyPath {
             let dir = (systemPath as NSString).deletingLastPathComponent
             let serverPath = (dir as NSString).appendingPathComponent("../share/scrcpy/scrcpy-server")
-            if FileManager.default.fileExists(atPath: serverPath) {
-                AppLogger.app.debug("使用系统 scrcpy-server: \(serverPath)")
-                return serverPath
+            if let validPath = validateServerPath(serverPath) {
+                AppLogger.app.debug("使用系统 scrcpy-server: \(validPath)")
+                return validPath
             }
         }
+
         AppLogger.app.warning("未找到 scrcpy-server")
         return nil
+    }
+
+    /// 验证 scrcpy-server 路径
+    /// - Parameter path: 候选路径
+    /// - Returns: 有效的服务器文件路径，如果是目录则查找其中的 jar 文件
+    private func validateServerPath(_ path: String) -> String? {
+        var isDirectory: ObjCBool = false
+
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
+            return nil
+        }
+
+        if isDirectory.boolValue {
+            // 如果是目录，查找其中的 scrcpy-server.jar 或 scrcpy-server
+            let jarPath = (path as NSString).appendingPathComponent("scrcpy-server.jar")
+            if FileManager.default.fileExists(atPath: jarPath) {
+                AppLogger.app.debug("在目录中找到 scrcpy-server.jar: \(jarPath)")
+                return jarPath
+            }
+
+            let serverFile = (path as NSString).appendingPathComponent("scrcpy-server")
+            if FileManager.default.fileExists(atPath: serverFile) {
+                AppLogger.app.debug("在目录中找到 scrcpy-server: \(serverFile)")
+                return serverFile
+            }
+
+            AppLogger.app.warning("scrcpy-server 路径是目录，但未找到有效的服务器文件: \(path)")
+            return nil
+        }
+
+        // 是文件，直接返回
+        return path
     }
 
     /// 系统安装的 adb 路径
@@ -113,23 +161,49 @@ final class ToolchainManager {
     /// 系统安装的 scrcpy 路径
     private var systemScrcpyPath: String?
 
-    /// adb 路径（优先使用内嵌版本）
+    /// adb 路径（优先级：自定义路径 > 内嵌版本 > 系统版本）
     var adbPath: String {
+        // 1. 检查自定义路径
+        if
+            UserPreferences.shared.useCustomAdbPath,
+            let customPath = UserPreferences.shared.customAdbPath,
+            !customPath.isEmpty,
+            FileManager.default.isExecutableFile(atPath: customPath) {
+            AppLogger.app.debug("使用自定义 adb: \(customPath)")
+            return customPath
+        }
+
+        // 2. 检查内嵌版本
         if let bundled = bundledAdbPath, FileManager.default.fileExists(atPath: bundled) {
             AppLogger.app.debug("使用内嵌 adb: \(bundled)")
             return bundled
         }
+
+        // 3. 系统版本
         let fallback = systemAdbPath ?? "/usr/local/bin/adb"
         AppLogger.app.debug("使用系统 adb: \(fallback)")
         return fallback
     }
 
-    /// scrcpy 路径（优先使用内嵌版本）
+    /// scrcpy 路径（优先级：自定义路径 > 内嵌版本 > 系统版本）
     var scrcpyPath: String {
+        // 1. 检查自定义路径
+        if
+            UserPreferences.shared.useCustomScrcpyPath,
+            let customPath = UserPreferences.shared.customScrcpyPath,
+            !customPath.isEmpty,
+            FileManager.default.isExecutableFile(atPath: customPath) {
+            AppLogger.app.debug("使用自定义 scrcpy: \(customPath)")
+            return customPath
+        }
+
+        // 2. 检查内嵌版本
         if let bundled = bundledScrcpyPath, FileManager.default.fileExists(atPath: bundled) {
             AppLogger.app.debug("使用内嵌 scrcpy: \(bundled)")
             return bundled
         }
+
+        // 3. 系统版本
         let fallback = systemScrcpyPath ?? "/opt/homebrew/bin/scrcpy"
         AppLogger.app.debug("使用系统 scrcpy: \(fallback)")
         return fallback

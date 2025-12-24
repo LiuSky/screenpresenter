@@ -404,6 +404,61 @@ final class PreferencesViewController: NSViewController {
 
         // 高级设置组
         let advancedGroup = createSettingsGroup(title: L10n.prefs.section.advanced, icon: "gearshape.2")
+
+        // 使用内置 adb
+        let useBundledAdbCheckbox = NSButton(
+            checkboxWithTitle: L10n.prefs.scrcpyPref.useBundledAdb,
+            target: self,
+            action: #selector(useBundledAdbChanged(_:))
+        )
+        useBundledAdbCheckbox.state = UserPreferences.shared.useBundledAdb ? .on : .off
+        advancedGroup.addArrangedSubview(useBundledAdbCheckbox)
+        let useBundledAdbNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.useBundledAdbNote)
+        useBundledAdbNote.font = NSFont.systemFont(ofSize: 11)
+        useBundledAdbNote.textColor = .secondaryLabelColor
+        advancedGroup.addArrangedSubview(useBundledAdbNote)
+
+        // 连接端口
+        advancedGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.port) {
+            let stack = NSStackView()
+            stack.orientation = .horizontal
+            stack.spacing = 8
+            let textField = NSTextField()
+            textField.stringValue = String(UserPreferences.shared.scrcpyPort)
+            textField.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+            textField.alignment = .center
+            textField.snp.makeConstraints { make in
+                make.width.equalTo(70)
+            }
+            textField.target = self
+            textField.action = #selector(scrcpyPortChanged(_:))
+            textField.tag = 3001
+            stack.addArrangedSubview(textField)
+
+            let stepper = NSStepper()
+            stepper.minValue = 1024
+            stepper.maxValue = 65535
+            stepper.intValue = Int32(UserPreferences.shared.scrcpyPort)
+            stepper.target = self
+            stepper.action = #selector(scrcpyPortStepperChanged(_:))
+            stepper.tag = 3001
+            stack.addArrangedSubview(stepper)
+            return stack
+        })
+
+        // 视频编解码器
+        advancedGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.codec) {
+            let popup = NSPopUpButton()
+            for codec in ScrcpyCodecType.allCases {
+                popup.addItem(withTitle: codec.displayName)
+            }
+            let currentIndex = ScrcpyCodecType.allCases.firstIndex(of: UserPreferences.shared.scrcpyCodec) ?? 0
+            popup.selectItem(at: currentIndex)
+            popup.target = self
+            popup.action = #selector(scrcpyCodecChanged(_:))
+            return popup
+        })
+
         let advancedNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.advancedNote)
         advancedNote.font = NSFont.systemFont(ofSize: 11)
         advancedNote.textColor = .secondaryLabelColor
@@ -427,33 +482,78 @@ final class PreferencesViewController: NSViewController {
         let scrollView = createScrollView()
         let stackView = createVerticalStack()
 
-        // 系统权限组
-        let systemPermGroup = createSettingsGroup(title: L10n.prefs.section.systemPermissions, icon: "lock.shield")
-        systemPermGroup.addArrangedSubview(createPermissionRow(
-            name: L10n.permission.screenRecordingName,
-            description: L10n.permission.screenRecordingDesc,
-            permissionType: .screenRecording
-        ))
-        let divider1 = NSBox()
-        divider1.boxType = .separator
-        systemPermGroup.addArrangedSubview(divider1)
-        systemPermGroup.addArrangedSubview(createPermissionRow(
+        // iOS 权限组
+        let iosPermGroup = createSettingsGroup(title: L10n.prefs.section.iosPermissions, icon: "apple.logo")
+        iosPermGroup.addArrangedSubview(createPermissionRow(
             name: L10n.permission.cameraName,
             description: L10n.permission.cameraDesc,
             permissionType: .camera
         ))
-        addSettingsGroup(systemPermGroup, to: stackView)
+        addSettingsGroup(iosPermGroup, to: stackView)
+
+        // Android 权限组
+        let androidPermGroup = createSettingsGroup(title: L10n.prefs.section.androidPermissions, icon: "apps.iphone")
+        androidPermGroup.addArrangedSubview(createPermissionRow(
+            name: L10n.permission.screenRecordingName,
+            description: L10n.permission.screenRecordingDesc,
+            permissionType: .screenRecording
+        ))
+        addSettingsGroup(androidPermGroup, to: stackView)
+
+        // 权限管理说明
+        let permNoteLabel = NSTextField(wrappingLabelWithString: L10n.permission.revokeNote)
+        permNoteLabel.font = NSFont.systemFont(ofSize: 11)
+        permNoteLabel.textColor = .secondaryLabelColor
+        stackView.addArrangedSubview(permNoteLabel)
+        permNoteLabel.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.trailing.equalToSuperview().offset(-16)
+        }
 
         // Android 工具链组
-        let toolchainGroup = createSettingsGroup(title: L10n.prefs.section.androidToolchain, icon: "apps.iphone")
-        toolchainGroup.addArrangedSubview(createToolchainRow(name: "adb", description: L10n.prefs.toolchain.adbDesc))
-        let divider = NSBox()
-        divider.boxType = .separator
-        toolchainGroup.addArrangedSubview(divider)
-        toolchainGroup.addArrangedSubview(createToolchainRow(
+        let toolchainGroup = createSettingsGroup(
+            title: L10n.prefs.section.androidToolchain,
+            icon: "wrench.and.screwdriver"
+        )
+
+        let adbRow = createToolchainRowWithPath(
+            name: "adb",
+            description: L10n.prefs.toolchain.adbDesc,
+            toolType: .adb
+        )
+        toolchainGroup.addArrangedSubview(adbRow)
+        adbRow.snp.makeConstraints { make in
+            make.width.equalToSuperview().offset(-24) // 减去左右 edgeInsets (12 * 2)
+        }
+
+        let divider1 = NSBox()
+        divider1.boxType = .separator
+        toolchainGroup.addArrangedSubview(divider1)
+
+        let scrcpyRow = createToolchainRowWithPath(
             name: "scrcpy",
-            description: L10n.prefs.toolchain.scrcpyDesc
-        ))
+            description: L10n.prefs.toolchain.scrcpyDesc,
+            toolType: .scrcpy
+        )
+        toolchainGroup.addArrangedSubview(scrcpyRow)
+        scrcpyRow.snp.makeConstraints { make in
+            make.width.equalToSuperview().offset(-24)
+        }
+
+        let divider2 = NSBox()
+        divider2.boxType = .separator
+        toolchainGroup.addArrangedSubview(divider2)
+
+        let scrcpyServerRow = createToolchainRowWithPath(
+            name: "scrcpy-server",
+            description: L10n.prefs.toolchain.scrcpyServerDesc,
+            toolType: .scrcpyServer
+        )
+        toolchainGroup.addArrangedSubview(scrcpyServerRow)
+        scrcpyServerRow.snp.makeConstraints { make in
+            make.width.equalToSuperview().offset(-24)
+        }
+
         addSettingsGroup(toolchainGroup, to: stackView)
 
         // 刷新按钮
@@ -499,28 +599,19 @@ final class PreferencesViewController: NSViewController {
     private func setupScrollViewConstraints(scrollView: NSScrollView, contentView: NSStackView) {
         guard let documentView = scrollView.documentView else { return }
 
-        // 关闭 autoresizing mask 转换
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-
         // 将 stackView 添加到 documentView（FlippedView）中
         documentView.addSubview(contentView)
 
         // 设置 contentView 约束
-        NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: documentView.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
-        ])
+        contentView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
 
         // 设置 documentView 约束（宽度等于 scrollView）
-        NSLayoutConstraint.activate([
-            documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-            documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
-            documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-            documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
-        ])
+        documentView.snp.makeConstraints { make in
+            make.leading.trailing.top.equalTo(scrollView.contentView)
+            make.width.equalTo(scrollView.contentView)
+        }
     }
 
     /// 创建设置分组，返回内容容器（contentBox）
@@ -560,12 +651,10 @@ final class PreferencesViewController: NSViewController {
         contentBox.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
         groupStack.addArrangedSubview(contentBox)
 
-        // 让 contentBox 宽度等于 groupStack 宽度（使用 NSLayoutConstraint 避免冲突）
-        contentBox.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            contentBox.leadingAnchor.constraint(equalTo: groupStack.leadingAnchor),
-            contentBox.trailingAnchor.constraint(equalTo: groupStack.trailingAnchor),
-        ])
+        // 让 contentBox 宽度等于 groupStack 宽度
+        contentBox.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+        }
 
         return contentBox
     }
@@ -574,12 +663,11 @@ final class PreferencesViewController: NSViewController {
     private func addSettingsGroup(_ contentBox: NSStackView, to parentStack: NSStackView) {
         guard let groupStack = contentBox.superview as? NSStackView else { return }
         parentStack.addArrangedSubview(groupStack)
-        // 让 groupStack 宽度填满父视图（使用 NSLayoutConstraint 避免冲突）
-        groupStack.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            groupStack.leadingAnchor.constraint(equalTo: parentStack.leadingAnchor, constant: 16),
-            groupStack.trailingAnchor.constraint(equalTo: parentStack.trailingAnchor, constant: -16),
-        ])
+        // 让 groupStack 宽度填满父视图
+        groupStack.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.trailing.equalToSuperview().offset(-16)
+        }
     }
 
     private func createLabeledRow(label: String, controlBuilder: () -> NSView) -> NSStackView {
@@ -695,12 +783,328 @@ final class PreferencesViewController: NSViewController {
         return rowStack
     }
 
+    private func createToolchainRowWithPath(name: String, description: String, toolType: ToolType) -> NSStackView {
+        let containerStack = NSStackView()
+        containerStack.orientation = .vertical
+        containerStack.alignment = .leading
+        containerStack.spacing = 8
+
+        // 第一行：状态显示
+        let statusRow = NSStackView()
+        statusRow.orientation = .horizontal
+        statusRow.alignment = .centerY
+        statusRow.spacing = 8
+
+        // 状态图标
+        let statusIcon = NSImageView()
+        statusIcon.image = NSImage(systemSymbolName: "circle", accessibilityDescription: nil)
+        statusIcon.contentTintColor = .secondaryLabelColor
+        statusIcon.snp.makeConstraints { make in
+            make.size.equalTo(18)
+        }
+        statusIcon.setContentHuggingPriority(.required, for: .horizontal)
+        statusIcon.setContentCompressionResistancePriority(.required, for: .horizontal)
+        statusRow.addArrangedSubview(statusIcon)
+
+        // 名称和描述
+        let infoStack = NSStackView()
+        infoStack.orientation = .vertical
+        infoStack.alignment = .leading
+        infoStack.spacing = 2
+        let nameLabel = NSTextField(labelWithString: name)
+        nameLabel.font = NSFont.systemFont(ofSize: 13)
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        infoStack.addArrangedSubview(nameLabel)
+        let descLabel = NSTextField(labelWithString: description)
+        descLabel.font = NSFont.systemFont(ofSize: 11)
+        descLabel.textColor = .secondaryLabelColor
+        descLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        infoStack.addArrangedSubview(descLabel)
+        infoStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        infoStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        statusRow.addArrangedSubview(infoStack)
+
+        // 弹性空间（推动状态文本到右边）
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        statusRow.addArrangedSubview(spacer)
+
+        // 状态文本（右对齐）
+        let statusLabel = NSTextField(labelWithString: L10n.common.checking)
+        statusLabel.font = NSFont.systemFont(ofSize: 11)
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.alignment = .right
+        statusLabel.setContentHuggingPriority(.required, for: .horizontal)
+        statusLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        statusRow.addArrangedSubview(statusLabel)
+
+        containerStack.addArrangedSubview(statusRow)
+        statusRow.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+        }
+
+        // 第二行：自定义路径
+        let pathRow = NSStackView()
+        pathRow.orientation = .horizontal
+        pathRow.alignment = .centerY
+        pathRow.spacing = 8
+
+        // 使用自定义路径复选框
+        let useCustomCheckbox = NSButton(
+            checkboxWithTitle: L10n.prefs.toolchain.useCustomPath,
+            target: self,
+            action: #selector(useCustomPathChanged(_:))
+        )
+        useCustomCheckbox.tag = tagForToolType(toolType, base: 4001)
+        useCustomCheckbox.state = useCustomPathForToolType(toolType) ? .on : .off
+        pathRow.addArrangedSubview(useCustomCheckbox)
+
+        containerStack.addArrangedSubview(pathRow)
+
+        // 第三行：路径输入（仅在启用自定义路径时显示）
+        let pathInputRow = NSStackView()
+        pathInputRow.orientation = .horizontal
+        pathInputRow.alignment = .centerY
+        pathInputRow.spacing = 8
+        pathInputRow.isHidden = !useCustomPathForToolType(toolType)
+
+        let pathTextField = NSTextField()
+        pathTextField.placeholderString = L10n.prefs.toolchain.pathPlaceholder
+        pathTextField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        pathTextField.tag = tagForToolType(toolType, base: 4011)
+        pathTextField.stringValue = customPathForToolType(toolType) ?? ""
+        pathTextField.target = self
+        pathTextField.action = #selector(customPathChanged(_:))
+        pathInputRow.addArrangedSubview(pathTextField)
+        pathTextField.snp.makeConstraints { make in
+            make.width.greaterThanOrEqualTo(200)
+        }
+
+        // 浏览按钮
+        let browseButton = NSButton(
+            title: L10n.prefs.toolchain.browse,
+            target: self,
+            action: #selector(browseToolPath(_:))
+        )
+        browseButton.bezelStyle = .rounded
+        browseButton.controlSize = .small
+        browseButton.tag = tagForToolType(toolType, base: 4021)
+        pathInputRow.addArrangedSubview(browseButton)
+
+        // 验证图标
+        let validationIcon = NSImageView()
+        validationIcon.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: nil)
+        validationIcon.contentTintColor = .secondaryLabelColor
+        validationIcon.tag = tagForToolType(toolType, base: 4031)
+        validationIcon.snp.makeConstraints { make in
+            make.size.equalTo(16)
+        }
+        pathInputRow.addArrangedSubview(validationIcon)
+
+        containerStack.addArrangedSubview(pathInputRow)
+        pathInputRow.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+        }
+
+        // 更新状态
+        Task { @MainActor in
+            let toolchain = AppState.shared.toolchainManager
+            let status: ToolchainStatus
+            let version: String
+
+            switch toolType {
+            case .adb:
+                status = toolchain.adbStatus
+                version = toolchain.adbVersionDescription
+            case .scrcpy:
+                status = toolchain.scrcpyStatus
+                version = toolchain.scrcpyVersionDescription
+            case .scrcpyServer:
+                // scrcpy-server 使用 scrcpy 的状态，但显示路径信息
+                if let serverPath = toolchain.scrcpyServerPath {
+                    statusIcon.image = NSImage(
+                        systemSymbolName: "checkmark.circle.fill",
+                        accessibilityDescription: nil
+                    )
+                    statusIcon.contentTintColor = .systemGreen
+                    let fileName = (serverPath as NSString).lastPathComponent
+                    statusLabel.stringValue = fileName
+                    statusLabel.textColor = .systemGreen
+                } else {
+                    statusIcon.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)
+                    statusIcon.contentTintColor = .systemOrange
+                    statusLabel.stringValue = L10n.prefs.toolchain.notInstalled
+                    statusLabel.textColor = .systemOrange
+                }
+                updatePathValidation(toolType: toolType, validationIcon: validationIcon)
+                return
+            }
+
+            switch status {
+            case .installed:
+                statusIcon.image = NSImage(
+                    systemSymbolName: "checkmark.circle.fill",
+                    accessibilityDescription: nil
+                )
+                statusIcon.contentTintColor = .systemGreen
+                statusLabel.stringValue = version
+                statusLabel.textColor = .systemGreen
+            case .notInstalled:
+                statusIcon.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)
+                statusIcon.contentTintColor = .systemOrange
+                statusLabel.stringValue = L10n.prefs.toolchain.notInstalled
+                statusLabel.textColor = .systemOrange
+            case .installing:
+                statusIcon.image = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)
+                statusIcon.contentTintColor = .appAccent
+                statusLabel.stringValue = L10n.common.checking
+            case let .error(message):
+                statusIcon.image = NSImage(
+                    systemSymbolName: "exclamationmark.circle.fill",
+                    accessibilityDescription: nil
+                )
+                statusIcon.contentTintColor = .systemRed
+                statusLabel.stringValue = message
+                statusLabel.textColor = .systemRed
+            }
+
+            // 验证自定义路径
+            updatePathValidation(toolType: toolType, validationIcon: validationIcon)
+        }
+
+        return containerStack
+    }
+
+    // MARK: - ToolType 辅助方法
+
+    private func tagForToolType(_ toolType: ToolType, base: Int) -> Int {
+        switch toolType {
+        case .adb: base
+        case .scrcpy: base + 1
+        case .scrcpyServer: base + 2
+        }
+    }
+
+    private func useCustomPathForToolType(_ toolType: ToolType) -> Bool {
+        switch toolType {
+        case .adb: UserPreferences.shared.useCustomAdbPath
+        case .scrcpy: UserPreferences.shared.useCustomScrcpyPath
+        case .scrcpyServer: UserPreferences.shared.useCustomScrcpyServerPath
+        }
+    }
+
+    private func customPathForToolType(_ toolType: ToolType) -> String? {
+        switch toolType {
+        case .adb: UserPreferences.shared.customAdbPath
+        case .scrcpy: UserPreferences.shared.customScrcpyPath
+        case .scrcpyServer: UserPreferences.shared.customScrcpyServerPath
+        }
+    }
+
+    private func toolTypeFromTag(_ tag: Int) -> ToolType? {
+        let offset = tag % 10
+        switch offset {
+        case 1: return .adb
+        case 2: return .scrcpy
+        case 3: return .scrcpyServer
+        default: return nil
+        }
+    }
+
+    private func updatePathValidation(toolType: ToolType, validationIcon: NSImageView) {
+        let useCustom = useCustomPathForToolType(toolType)
+        let customPath = customPathForToolType(toolType)
+
+        guard useCustom, let path = customPath, !path.isEmpty else {
+            validationIcon.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: nil)
+            validationIcon.contentTintColor = .secondaryLabelColor
+            validationIcon.toolTip = nil
+            return
+        }
+
+        // 检查文件是否存在
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        let exists = fileManager.fileExists(atPath: path, isDirectory: &isDirectory)
+
+        // scrcpy-server 不需要检查可执行权限，它是 DEX 文件
+        if toolType == .scrcpyServer {
+            if exists, !isDirectory.boolValue {
+                validationIcon.image = NSImage(
+                    systemSymbolName: "checkmark.circle.fill",
+                    accessibilityDescription: nil
+                )
+                validationIcon.contentTintColor = .systemGreen
+                validationIcon.toolTip = L10n.prefs.toolchain.pathValid
+            } else if !exists {
+                validationIcon.image = NSImage(
+                    systemSymbolName: "xmark.circle.fill",
+                    accessibilityDescription: nil
+                )
+                validationIcon.contentTintColor = .systemRed
+                validationIcon.toolTip = L10n.prefs.toolchain.pathNotFound
+            } else {
+                validationIcon.image = NSImage(
+                    systemSymbolName: "xmark.circle.fill",
+                    accessibilityDescription: nil
+                )
+                validationIcon.contentTintColor = .systemRed
+                validationIcon.toolTip = L10n.prefs.toolchain.pathIsDirectory
+            }
+            return
+        }
+
+        // adb 和 scrcpy 需要检查可执行权限
+        let isExecutable = fileManager.isExecutableFile(atPath: path)
+
+        if exists, !isDirectory.boolValue, isExecutable {
+            validationIcon.image = NSImage(
+                systemSymbolName: "checkmark.circle.fill",
+                accessibilityDescription: nil
+            )
+            validationIcon.contentTintColor = .systemGreen
+            validationIcon.toolTip = L10n.prefs.toolchain.pathValid
+        } else if !exists {
+            validationIcon.image = NSImage(
+                systemSymbolName: "xmark.circle.fill",
+                accessibilityDescription: nil
+            )
+            validationIcon.contentTintColor = .systemRed
+            validationIcon.toolTip = L10n.prefs.toolchain.pathNotFound
+        } else if isDirectory.boolValue {
+            validationIcon.image = NSImage(
+                systemSymbolName: "xmark.circle.fill",
+                accessibilityDescription: nil
+            )
+            validationIcon.contentTintColor = .systemRed
+            validationIcon.toolTip = L10n.prefs.toolchain.pathIsDirectory
+        } else {
+            validationIcon.image = NSImage(
+                systemSymbolName: "exclamationmark.circle.fill",
+                accessibilityDescription: nil
+            )
+            validationIcon.contentTintColor = .systemOrange
+            validationIcon.toolTip = L10n.prefs.toolchain.pathNotExecutable
+        }
+    }
+
     private enum PermissionType {
         case screenRecording
         case camera
     }
 
+    private enum ToolType {
+        case adb
+        case scrcpy
+        case scrcpyServer
+    }
+
     private func createPermissionRow(name: String, description: String, permissionType: PermissionType) -> NSStackView {
+        let containerStack = NSStackView()
+        containerStack.orientation = .vertical
+        containerStack.alignment = .leading
+        containerStack.spacing = 8
+
         let rowStack = NSStackView()
         rowStack.orientation = .horizontal
         rowStack.alignment = .top
@@ -773,7 +1177,30 @@ final class PreferencesViewController: NSViewController {
             openButton.tag = 1
         }
         rightStack.addArrangedSubview(openButton)
+
+        // 撤销按钮（已授权时显示）
+        let revokeButton = NSButton(
+            title: L10n.permission.revoke,
+            target: self,
+            action: #selector(revokePermission(_:))
+        )
+        revokeButton.bezelStyle = .rounded
+        revokeButton.controlSize = .small
+        revokeButton.setContentHuggingPriority(.required, for: .horizontal)
+        revokeButton.isHidden = true
+        switch permissionType {
+        case .screenRecording:
+            revokeButton.tag = 10
+        case .camera:
+            revokeButton.tag = 11
+        }
+        rightStack.addArrangedSubview(revokeButton)
+
         rowStack.addArrangedSubview(rightStack)
+        containerStack.addArrangedSubview(rowStack)
+        rowStack.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+        }
 
         // 检查权限状态
         Task { @MainActor in
@@ -789,22 +1216,25 @@ final class PreferencesViewController: NSViewController {
                 statusIcon.contentTintColor = .systemGreen
                 statusLabel.stringValue = L10n.permission.granted
                 statusLabel.textColor = .systemGreen
+                openButton.isHidden = true
+                revokeButton.isHidden = false
             } else {
                 statusIcon.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)
                 statusIcon.contentTintColor = .systemOrange
                 statusLabel.stringValue = L10n.permission.denied
                 statusLabel.textColor = .systemOrange
+                openButton.isHidden = false
+                revokeButton.isHidden = true
             }
         }
 
-        return rowStack
+        return containerStack
     }
 
     private func checkScreenRecordingPermission() -> Bool {
         // 检查屏幕录制权限
-        // 通过尝试获取窗口列表来判断是否有权限
-        let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
-        return windowList != nil && !windowList!.isEmpty
+        // macOS 10.15+ 使用 CGPreflightScreenCaptureAccess 准确检查权限状态
+        CGPreflightScreenCaptureAccess()
     }
 
     private func checkCameraPermission() -> Bool {
@@ -887,6 +1317,44 @@ final class PreferencesViewController: NSViewController {
         UserPreferences.shared.scrcpyShowTouches = sender.state == .on
     }
 
+    @objc private func useBundledAdbChanged(_ sender: NSButton) {
+        UserPreferences.shared.useBundledAdb = sender.state == .on
+        // 刷新工具链状态
+        Task {
+            await AppState.shared.toolchainManager.refresh()
+        }
+    }
+
+    @objc private func scrcpyPortChanged(_ sender: NSTextField) {
+        guard let port = Int(sender.stringValue), port >= 1024, port <= 65535 else {
+            // 恢复为当前值
+            sender.stringValue = String(UserPreferences.shared.scrcpyPort)
+            return
+        }
+        UserPreferences.shared.scrcpyPort = port
+        // 同步更新 stepper
+        if let stepper = sender.superview?.subviews.first(where: { $0.tag == 3001 && $0 is NSStepper }) as? NSStepper {
+            stepper.intValue = Int32(port)
+        }
+    }
+
+    @objc private func scrcpyPortStepperChanged(_ sender: NSStepper) {
+        let port = Int(sender.intValue)
+        UserPreferences.shared.scrcpyPort = port
+        // 同步更新文本框
+        if
+            let textField = sender.superview?.subviews
+                .first(where: { $0.tag == 3001 && $0 is NSTextField }) as? NSTextField {
+            textField.stringValue = String(port)
+        }
+    }
+
+    @objc private func scrcpyCodecChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard index >= 0, index < ScrcpyCodecType.allCases.count else { return }
+        UserPreferences.shared.scrcpyCodec = ScrcpyCodecType.allCases[index]
+    }
+
     @objc private func refreshToolchain() {
         Task {
             await AppState.shared.toolchainManager.refresh()
@@ -913,6 +1381,168 @@ final class PreferencesViewController: NSViewController {
         }
         if let url = URL(string: urlString) {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func revokePermission(_ sender: NSButton) {
+        let urlString: String
+        let alertMessage: String
+
+        switch sender.tag {
+        case 10:
+            // 屏幕录制权限
+            urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+            alertMessage = L10n.permission.revokeScreenRecordingHint
+        case 11:
+            // 摄像头权限
+            urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
+            alertMessage = L10n.permission.revokeCameraHint
+        default:
+            return
+        }
+
+        // 显示提示
+        let alert = NSAlert()
+        alert.messageText = L10n.permission.revokeTitle
+        alert.informativeText = alertMessage
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: L10n.permission.openSystemPrefs)
+        alert.addButton(withTitle: L10n.common.cancel)
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            if let url = URL(string: urlString) {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+
+    // MARK: - 工具链路径设置
+
+    @objc private func useCustomPathChanged(_ sender: NSButton) {
+        guard let toolType = toolTypeFromTag(sender.tag) else { return }
+        let useCustom = sender.state == .on
+
+        switch toolType {
+        case .adb:
+            UserPreferences.shared.useCustomAdbPath = useCustom
+        case .scrcpy:
+            UserPreferences.shared.useCustomScrcpyPath = useCustom
+        case .scrcpyServer:
+            UserPreferences.shared.useCustomScrcpyServerPath = useCustom
+        }
+
+        // 查找对应的路径输入行并更新显示
+        let pathInputTag = tagForToolType(toolType, base: 4011)
+        if let containerStack = sender.superview?.superview as? NSStackView {
+            for arrangedSubview in containerStack.arrangedSubviews {
+                if let pathRow = arrangedSubview as? NSStackView {
+                    for subview in pathRow.arrangedSubviews {
+                        if let textField = subview as? NSTextField, textField.tag == pathInputTag {
+                            pathRow.isHidden = !useCustom
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        // 刷新工具链状态
+        Task {
+            await AppState.shared.toolchainManager.refresh()
+        }
+    }
+
+    @objc private func customPathChanged(_ sender: NSTextField) {
+        guard let toolType = toolTypeFromTag(sender.tag) else { return }
+        let path = sender.stringValue
+
+        switch toolType {
+        case .adb:
+            UserPreferences.shared.customAdbPath = path.isEmpty ? nil : path
+        case .scrcpy:
+            UserPreferences.shared.customScrcpyPath = path.isEmpty ? nil : path
+        case .scrcpyServer:
+            UserPreferences.shared.customScrcpyServerPath = path.isEmpty ? nil : path
+        }
+
+        // 更新验证图标
+        let validationTag = tagForToolType(toolType, base: 4031)
+        if let parentStack = sender.superview as? NSStackView {
+            for subview in parentStack.arrangedSubviews {
+                if let icon = subview as? NSImageView, icon.tag == validationTag {
+                    updatePathValidation(toolType: toolType, validationIcon: icon)
+                    break
+                }
+            }
+        }
+
+        // 刷新工具链状态
+        Task {
+            await AppState.shared.toolchainManager.refresh()
+        }
+    }
+
+    @objc private func browseToolPath(_ sender: NSButton) {
+        guard let toolType = toolTypeFromTag(sender.tag) else { return }
+        let toolName = switch toolType {
+        case .adb: "adb"
+        case .scrcpy: "scrcpy"
+        case .scrcpyServer: "scrcpy-server"
+        }
+
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = L10n.prefs.toolchain.selectTool(toolName)
+        panel.prompt = L10n.common.ok
+
+        // 设置初始目录
+        if let currentPath = customPathForToolType(toolType), !currentPath.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: currentPath).deletingLastPathComponent()
+        } else {
+            panel.directoryURL = URL(fileURLWithPath: "/usr/local/bin")
+        }
+
+        if panel.runModal() == .OK, let url = panel.url {
+            let path = url.path
+
+            // 更新 UserPreferences
+            switch toolType {
+            case .adb:
+                UserPreferences.shared.customAdbPath = path
+            case .scrcpy:
+                UserPreferences.shared.customScrcpyPath = path
+            case .scrcpyServer:
+                UserPreferences.shared.customScrcpyServerPath = path
+            }
+
+            // 更新文本框
+            let textFieldTag = tagForToolType(toolType, base: 4011)
+            if let parentStack = sender.superview as? NSStackView {
+                for subview in parentStack.arrangedSubviews {
+                    if let textField = subview as? NSTextField, textField.tag == textFieldTag {
+                        textField.stringValue = path
+                        break
+                    }
+                }
+            }
+
+            // 更新验证图标
+            let validationTag = tagForToolType(toolType, base: 4031)
+            if let parentStack = sender.superview as? NSStackView {
+                for subview in parentStack.arrangedSubviews {
+                    if let icon = subview as? NSImageView, icon.tag == validationTag {
+                        updatePathValidation(toolType: toolType, validationIcon: icon)
+                        break
+                    }
+                }
+            }
+
+            // 刷新工具链状态
+            Task {
+                await AppState.shared.toolchainManager.refresh()
+            }
         }
     }
 }

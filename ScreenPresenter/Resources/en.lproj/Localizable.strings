@@ -99,6 +99,8 @@
 "prefs.section.display" = "Display";
 "prefs.section.advanced" = "Advanced";
 "prefs.section.systemPermissions" = "System Permissions";
+"prefs.section.iosPermissions" = "iOS Permissions";
+"prefs.section.androidPermissions" = "Android Permissions";
 "prefs.section.androidToolchain" = "Android Toolchain";
 
 // MARK: - Preferences - General
@@ -137,6 +139,10 @@
 "prefs.scrcpy.noLimit" = "No Limit";
 "prefs.scrcpy.pixels" = "%d pixels";
 "prefs.scrcpy.mbps" = "%d Mbps";
+"prefs.scrcpy.useBundledAdb" = "Use Bundled adb";
+"prefs.scrcpy.useBundledAdbNote" = "Use the built-in adb tool instead of system-installed one";
+"prefs.scrcpy.port" = "Connection Port";
+"prefs.scrcpy.codec" = "Video Codec";
 
 // MARK: - Preferences - Toolchain
 "prefs.toolchain.title" = "Toolchain Status";
@@ -149,7 +155,16 @@
 "prefs.toolchain.installing" = "Installing...";
 "prefs.toolchain.bundled" = "Bundled %@";
 "prefs.toolchain.adbDesc" = "Android Debug Bridge";
-"prefs.toolchain.scrcpyDesc" = "Android Screen Mirror Tool";
+"prefs.toolchain.scrcpyDesc" = "Android Screen Mirror Client";
+"prefs.toolchain.scrcpyServerDesc" = "Android Screen Mirror Server (DEX)";
+"prefs.toolchain.useCustomPath" = "Use custom path";
+"prefs.toolchain.pathPlaceholder" = "Enter tool path...";
+"prefs.toolchain.browse" = "Browse...";
+"prefs.toolchain.selectTool" = "Select %@ executable";
+"prefs.toolchain.pathValid" = "Path is valid";
+"prefs.toolchain.pathNotFound" = "File not found";
+"prefs.toolchain.pathIsDirectory" = "Path is a directory, not a file";
+"prefs.toolchain.pathNotExecutable" = "File is not executable";
 
 // MARK: - Preferences - About
 "prefs.about.version" = "Version %@";
@@ -206,7 +221,12 @@
 "permission.screenRecording.desc" = "For capturing Android device screen (fallback only)";
 "permission.camera.name" = "Camera";
 "permission.camera.desc" = "For capturing iOS device screen via USB";
-"permission.openSystemPrefs" = "Open System Preferences";
+"permission.openSystemPrefs" = "Open Settings";
+"permission.revoke" = "Revoke";
+"permission.revokeTitle" = "Revoke Permission";
+"permission.revokeScreenRecordingHint" = "To revoke screen recording permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Screen Recording, then restart the app.";
+"permission.revokeCameraHint" = "To revoke camera permission, please uncheck ScreenPresenter in System Settings > Privacy & Security > Camera, then restart the app.";
+"permission.revokeNote" = "To revoke a permission, click the \"Revoke\" button and manually uncheck ScreenPresenter in System Settings. Changes will take effect after restarting the app.";
 
 // MARK: - Background Color Mode
 "background.followTheme" = "Follow Theme";

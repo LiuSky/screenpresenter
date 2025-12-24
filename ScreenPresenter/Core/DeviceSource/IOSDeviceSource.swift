@@ -12,7 +12,6 @@
 @preconcurrency import AVFoundation
 import Combine
 import CoreMedia
-import CoreMediaIO
 import CoreVideo
 import Foundation
 
@@ -79,8 +78,10 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         AppLogger.connection.info("开始连接 iOS 设备: \(iosDevice.name)")
 
         do {
-            // 1. 确保 CoreMediaIO 已启用屏幕捕获设备
-            enableCoreMediaIOScreenCapture()
+            // 1. 确保 CoreMediaIO 已启用屏幕捕获设备（使用全局单例）
+            if !IOSScreenMirrorActivator.shared.isDALEnabled {
+                IOSScreenMirrorActivator.shared.enableDALDevices()
+            }
 
             // 2. 创建捕获会话
             try await setupCaptureSession()
@@ -169,32 +170,6 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         }
 
         AppLogger.capture.info("iOS 捕获已停止: \(iosDevice.name)")
-    }
-
-    // MARK: - CoreMediaIO 设置
-
-    /// 启用 CoreMediaIO 屏幕捕获设备（关键步骤）
-    private func enableCoreMediaIOScreenCapture() {
-        var prop = CMIOObjectPropertyAddress(
-            mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyAllowScreenCaptureDevices),
-            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeGlobal),
-            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementMain)
-        )
-
-        var allow: UInt32 = 1
-        let result = CMIOObjectSetPropertyData(
-            CMIOObjectID(kCMIOObjectSystemObject),
-            &prop,
-            0, nil,
-            UInt32(MemoryLayout<UInt32>.size),
-            &allow
-        )
-
-        if result == kCMIOHardwareNoError {
-            AppLogger.device.info("已启用 CoreMediaIO 屏幕捕获设备")
-        } else {
-            AppLogger.device.warning("启用 CoreMediaIO 屏幕捕获设备失败: \(result)")
-        }
     }
 
     // MARK: - 捕获会话设置

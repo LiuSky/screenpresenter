@@ -275,6 +275,8 @@ enum L10n {
             static var display: String { "prefs.section.display".localized }
             static var advanced: String { "prefs.section.advanced".localized }
             static var systemPermissions: String { "prefs.section.systemPermissions".localized }
+            static var iosPermissions: String { "prefs.section.iosPermissions".localized }
+            static var androidPermissions: String { "prefs.section.androidPermissions".localized }
             static var androidToolchain: String { "prefs.section.androidToolchain".localized }
         }
 
@@ -319,6 +321,10 @@ enum L10n {
             static var noLimit: String { "prefs.scrcpy.noLimit".localized }
             static func pixels(_ n: Int) -> String { "prefs.scrcpy.pixels".localized(n) }
             static func mbps(_ n: Int) -> String { "prefs.scrcpy.mbps".localized(n) }
+            static var useBundledAdb: String { "prefs.scrcpy.useBundledAdb".localized }
+            static var useBundledAdbNote: String { "prefs.scrcpy.useBundledAdbNote".localized }
+            static var port: String { "prefs.scrcpy.port".localized }
+            static var codec: String { "prefs.scrcpy.codec".localized }
         }
 
         enum toolchain {
@@ -332,11 +338,21 @@ enum L10n {
             static var installing: String { "prefs.toolchain.installing".localized }
             static var adbDesc: String { "prefs.toolchain.adbDesc".localized }
             static var scrcpyDesc: String { "prefs.toolchain.scrcpyDesc".localized }
+            static var scrcpyServerDesc: String { "prefs.toolchain.scrcpyServerDesc".localized }
             static func bundled(_ version: String) -> String { "toolchain.bundled".localized(version) }
             static var notFoundAdb: String { "toolchain.notFound.adb".localized }
             static var notFoundScrcpy: String { "toolchain.notFound.scrcpy".localized }
             static var installHomebrew: String { "toolchain.installHomebrew".localized }
             static var installFailed: String { "toolchain.installFailed".localized }
+            // 自定义路径
+            static var useCustomPath: String { "prefs.toolchain.useCustomPath".localized }
+            static var pathPlaceholder: String { "prefs.toolchain.pathPlaceholder".localized }
+            static var browse: String { "prefs.toolchain.browse".localized }
+            static func selectTool(_ name: String) -> String { "prefs.toolchain.selectTool".localized(name) }
+            static var pathValid: String { "prefs.toolchain.pathValid".localized }
+            static var pathNotFound: String { "prefs.toolchain.pathNotFound".localized }
+            static var pathIsDirectory: String { "prefs.toolchain.pathIsDirectory".localized }
+            static var pathNotExecutable: String { "prefs.toolchain.pathNotExecutable".localized }
         }
 
         enum about {
@@ -432,6 +448,12 @@ enum L10n {
         static var cameraName: String { "permission.camera.name".localized }
         static var cameraDesc: String { "permission.camera.desc".localized }
         static var openSystemPrefs: String { "permission.openSystemPrefs".localized }
+        // 撤销权限
+        static var revoke: String { "permission.revoke".localized }
+        static var revokeTitle: String { "permission.revokeTitle".localized }
+        static var revokeScreenRecordingHint: String { "permission.revokeScreenRecordingHint".localized }
+        static var revokeCameraHint: String { "permission.revokeCameraHint".localized }
+        static var revokeNote: String { "permission.revokeNote".localized }
     }
 
     // MARK: - Background

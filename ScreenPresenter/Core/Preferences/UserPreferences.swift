@@ -11,6 +11,21 @@
 import AppKit
 import Foundation
 
+// MARK: - Scrcpy 编解码器类型
+
+/// Scrcpy 编解码器类型
+enum ScrcpyCodecType: String, CaseIterable {
+    case h264
+    case h265
+
+    var displayName: String {
+        switch self {
+        case .h264: "H.264"
+        case .h265: "H.265 (HEVC)"
+        }
+    }
+}
+
 // MARK: - 用户偏好设置模型
 
 /// 用户偏好设置
@@ -32,6 +47,16 @@ final class UserPreferences {
         static let scrcpyBitrate = "scrcpyBitrate"
         static let scrcpyMaxSize = "scrcpyMaxSize"
         static let scrcpyShowTouches = "scrcpyShowTouches"
+        static let useBundledAdb = "useBundledAdb"
+        static let scrcpyPort = "scrcpyPort"
+        static let scrcpyCodec = "scrcpyCodec"
+        // 自定义路径
+        static let customAdbPath = "customAdbPath"
+        static let customScrcpyPath = "customScrcpyPath"
+        static let customScrcpyServerPath = "customScrcpyServerPath"
+        static let useCustomAdbPath = "useCustomAdbPath"
+        static let useCustomScrcpyPath = "useCustomScrcpyPath"
+        static let useCustomScrcpyServerPath = "useCustomScrcpyServerPath"
     }
 
     // MARK: - UserDefaults
@@ -156,6 +181,80 @@ final class UserPreferences {
         set { defaults.set(newValue, forKey: Keys.scrcpyShowTouches) }
     }
 
+    // MARK: - Debug Settings
+
+    /// 是否使用内置 adb（默认 true）
+    var useBundledAdb: Bool {
+        get {
+            if defaults.object(forKey: Keys.useBundledAdb) == nil {
+                return true
+            }
+            return defaults.bool(forKey: Keys.useBundledAdb)
+        }
+        set { defaults.set(newValue, forKey: Keys.useBundledAdb) }
+    }
+
+    /// scrcpy 连接端口（默认 27183）
+    var scrcpyPort: Int {
+        get {
+            let value = defaults.integer(forKey: Keys.scrcpyPort)
+            return value > 0 ? value : 27183
+        }
+        set { defaults.set(newValue, forKey: Keys.scrcpyPort) }
+    }
+
+    /// scrcpy 编解码器（h264/h265，默认 h264）
+    var scrcpyCodec: ScrcpyCodecType {
+        get {
+            guard
+                let raw = defaults.string(forKey: Keys.scrcpyCodec),
+                let codec = ScrcpyCodecType(rawValue: raw)
+            else {
+                return .h264
+            }
+            return codec
+        }
+        set { defaults.set(newValue.rawValue, forKey: Keys.scrcpyCodec) }
+    }
+
+    // MARK: - Custom Tool Paths
+
+    /// 是否使用自定义 adb 路径
+    var useCustomAdbPath: Bool {
+        get { defaults.bool(forKey: Keys.useCustomAdbPath) }
+        set { defaults.set(newValue, forKey: Keys.useCustomAdbPath) }
+    }
+
+    /// 自定义 adb 路径
+    var customAdbPath: String? {
+        get { defaults.string(forKey: Keys.customAdbPath) }
+        set { defaults.set(newValue, forKey: Keys.customAdbPath) }
+    }
+
+    /// 是否使用自定义 scrcpy 路径
+    var useCustomScrcpyPath: Bool {
+        get { defaults.bool(forKey: Keys.useCustomScrcpyPath) }
+        set { defaults.set(newValue, forKey: Keys.useCustomScrcpyPath) }
+    }
+
+    /// 自定义 scrcpy 路径
+    var customScrcpyPath: String? {
+        get { defaults.string(forKey: Keys.customScrcpyPath) }
+        set { defaults.set(newValue, forKey: Keys.customScrcpyPath) }
+    }
+
+    /// 是否使用自定义 scrcpy-server 路径
+    var useCustomScrcpyServerPath: Bool {
+        get { defaults.bool(forKey: Keys.useCustomScrcpyServerPath) }
+        set { defaults.set(newValue, forKey: Keys.useCustomScrcpyServerPath) }
+    }
+
+    /// 自定义 scrcpy-server 路径
+    var customScrcpyServerPath: String? {
+        get { defaults.string(forKey: Keys.customScrcpyServerPath) }
+        set { defaults.set(newValue, forKey: Keys.customScrcpyServerPath) }
+    }
+
     // MARK: - Private Init
 
     private init() {
@@ -173,6 +272,9 @@ final class UserPreferences {
             Keys.scrcpyBitrate: 8,
             Keys.scrcpyMaxSize: 1920,
             Keys.scrcpyShowTouches: false,
+            Keys.useBundledAdb: true,
+            Keys.scrcpyPort: 27183,
+            Keys.scrcpyCodec: ScrcpyCodecType.h264.rawValue,
         ])
     }
 
@@ -180,13 +282,19 @@ final class UserPreferences {
 
     /// 为特定设备构建 scrcpy 配置
     func buildScrcpyConfiguration(serial: String) -> ScrcpyConfiguration {
-        ScrcpyConfiguration(
+        let videoCodec: ScrcpyConfiguration.VideoCodec = switch scrcpyCodec {
+        case .h264: .h264
+        case .h265: .h265
+        }
+
+        return ScrcpyConfiguration(
             serial: serial,
             maxSize: scrcpyMaxSize,
             bitrate: scrcpyBitrate * 1_000_000,
             maxFps: captureFrameRate,
             showTouches: scrcpyShowTouches,
-            stayAwake: true
+            stayAwake: true,
+            videoCodec: videoCodec
         )
     }
 }

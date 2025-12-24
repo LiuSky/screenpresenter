@@ -1039,13 +1039,9 @@ final class DevicePanelView: NSView {
         let barHeight: CGFloat = 28
         let horizontalInset: CGFloat = 20
 
-        // 计算顶部偏移：存在顶部特征， y 从顶部底部开始
-        // 如果没有顶部特征（topFeatureBottomInset < 1），则从屏幕顶部下移 12pt
-        let topOffset: CGFloat = if topFeatureBottomInset < 1 {
-            12
-        } else {
-            topFeatureBottomInset
-        }
+        // 计算顶部偏移：存在顶部特征， y 从特征底部 + 12 开始
+        // 如果没有顶部特征（topFeatureBottomInset == 0），则从屏幕顶部下移 12pt
+        let topOffset: CGFloat = max(topFeatureBottomInset, 0) + 12
 
         captureBarView.frame = CGRect(
             x: screen.minX + horizontalInset,
