@@ -78,7 +78,11 @@ final class ToastView: NSView {
         super.init(frame: .zero)
 
         setupUI()
-        setupTrackingArea()
+
+        // 只有 error 类型才启用鼠标追踪（悬停时暂停消失计时）
+        if style == .error {
+            setupTrackingArea()
+        }
     }
 
     @available(*, unavailable)
@@ -161,6 +165,10 @@ final class ToastView: NSView {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
+
+        // 只有 error 类型才需要更新追踪区域
+        guard style == .error else { return }
+
         if let trackingArea {
             removeTrackingArea(trackingArea)
         }

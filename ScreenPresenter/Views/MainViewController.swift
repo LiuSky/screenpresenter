@@ -431,20 +431,6 @@ final class MainViewController: NSViewController {
                 panel?.renderView.updateTexture(from: pixelBuffer)
             }
 
-            // 设置会话中断回调（设备锁屏等）
-            appState.iosDeviceSource?.onSessionInterrupted = { [weak panel] reason in
-                DispatchQueue.main.async {
-                    panel?.showSessionInterrupted(reason: reason)
-                }
-            }
-
-            // 设置会话恢复回调（设备解锁等）
-            appState.iosDeviceSource?.onSessionResumed = { [weak panel] in
-                DispatchQueue.main.async {
-                    panel?.hideSessionInterrupted()
-                }
-            }
-
             panel.showCapturing(
                 deviceName: appState.iosDeviceName ?? "iPhone",
                 modelName: appState.iosDeviceModelName,
@@ -458,8 +444,6 @@ final class MainViewController: NSViewController {
         } else if appState.iosConnected {
             // 清除帧回调
             appState.iosDeviceSource?.onFrame = nil
-            appState.iosDeviceSource?.onSessionInterrupted = nil
-            appState.iosDeviceSource?.onSessionResumed = nil
 
             // 获取设备详细信息
             let device = appState.iosDeviceProvider.devices.first

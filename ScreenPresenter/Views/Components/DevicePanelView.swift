@@ -401,7 +401,7 @@ final class DevicePanelView: NSView {
             make.centerX.equalToSuperview()
             make.bottom.equalToSuperview()
         }
-        
+
         // 刷新加载指示器（菊花）
         refreshLoadingIndicator = NSProgressIndicator()
         refreshLoadingIndicator.style = .spinning
@@ -775,44 +775,6 @@ final class DevicePanelView: NSView {
     func setActionButtonEnabled(_ enabled: Bool) {
         actionButton.isEnabled = enabled
         actionButton.alphaValue = enabled ? 1.0 : 0.7
-    }
-
-    // MARK: - 会话中断状态
-
-    /// 显示会话中断提示（设备锁屏等）
-    func showSessionInterrupted(reason: String) {
-        // 在捕获栏上显示中断提示
-        captureStatusLabel.stringValue = "⚠️ \(reason)"
-        captureStatusLabel.textColor = .systemOrange
-
-        // 显示捕获栏
-        captureBarView.isHidden = false
-        captureBarView.alphaValue = 1.0
-
-        // 停止脉冲动画
-        captureIndicator.layer?.removeAllAnimations()
-        captureIndicator.layer?.backgroundColor = NSColor.systemOrange.cgColor
-
-        AppLogger.capture.warning("会话中断显示: \(reason)")
-    }
-
-    /// 隐藏会话中断提示
-    func hideSessionInterrupted() {
-        // 恢复正常状态：显示设备型号和名称
-        updateCaptureStatusText()
-        captureStatusLabel.textColor = .white
-
-        // 恢复捕获指示器
-        captureIndicator.layer?.backgroundColor = NSColor.systemGreen.cgColor
-        addPulseAnimation(to: captureIndicator)
-
-        // 恢复捕获栏的悬停行为
-        if !isMouseInside {
-            captureBarView.isHidden = true
-            captureBarView.alphaValue = 0.0
-        }
-
-        AppLogger.capture.info("会话中断恢复")
     }
 
     /// 更新帧率

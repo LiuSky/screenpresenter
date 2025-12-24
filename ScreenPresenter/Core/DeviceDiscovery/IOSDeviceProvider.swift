@@ -5,18 +5,26 @@
 //  Created by Sun on 2025/12/24.
 //
 //  iOS 设备提供者
-//  使用 AVFoundation 发现和管理 USB 连接的 iOS 设备
+//  管理 USB 连接的 iOS 设备发现和状态监控
 //
-//  架构职责：
-//  - IOSDeviceProvider：设备发现（AVFoundation）+ 连接状态监控
-//  - DeviceInsightService：设备信息增强（FBDeviceControl）+ 缓存管理
+//  架构设计（FBDeviceControl 优先模式）：
+//  - 当 FBDeviceControl 可用时：
+//    FBDeviceControl 提供设备列表和完整信息（名称、UDID、型号、版本）
+//    → 为每个设备查找对应的 AVCaptureDevice（用于视频捕获）
+//    → AVFoundation 补充实时状态（锁屏、占用）
 //
-//  数据流：
-//  AVFoundation 发现设备 → DeviceInsightService 补全信息 → IOSDevice 模型 → UI
+//  - 当 FBDeviceControl 不可用时（fallback）：
+//    AVFoundation 发现设备 → 使用有限的设备信息
+//
+//  优势：
+//  - 设备名称直接来自 FBDeviceControl，准确且无需清理后缀
+//  - 型号、版本等信息完整可靠
+//  - 匹配逻辑更简单：用准确名称匹配带后缀的 AVFoundation 名称
 //
 
 import AVFoundation
 import Combine
+import FBDeviceControlKit
 import Foundation
 
 // MARK: - iOS 设备提供者
@@ -252,8 +260,9 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     /// 更新单个设备的信息（不刷新设备列表）
     /// - Parameter device: 更新后的设备信息
     func updateDevice(_ device: IOSDevice) {
-        guard let index = devices.firstIndex(where: { $0.id == device.id }) else {
-            AppLogger.device.warning("更新设备失败：未找到设备 \(device.id)")
+        // 使用 avUniqueID 匹配设备，保持一致性
+        guard let index = devices.firstIndex(where: { $0.avUniqueID == device.avUniqueID }) else {
+            AppLogger.device.warning("更新设备失败：未找到设备 \(device.displayName) (avUniqueID: \(device.avUniqueID))")
             return
         }
         devices[index] = device
@@ -274,59 +283,224 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     // MARK: - 私有方法
 
     private func updateDeviceList(from captureDevices: [AVCaptureDevice]) {
-        // 记录原始捕获设备数量（用于调试）
-        AppLogger.device.debug("发现 \(captureDevices.count) 个外部视频捕获设备")
-
-        // 步骤 1：从 AVFoundation 创建基础设备列表
-        var iosDevices = captureDevices.compactMap { device -> IOSDevice? in
-            IOSDevice.from(captureDevice: device)
+        // 筛选出 iOS 屏幕镜像设备
+        let iosCaptureDevices = captureDevices.filter { device in
+            guard device.deviceType == .external else { return false }
+            let modelID = device.modelID
+            let isIOSDevice = modelID.hasPrefix("iPhone") ||
+                modelID.hasPrefix("iPad") ||
+                modelID.hasPrefix("iPod") ||
+                modelID == "iOS Device"
+            guard isIOSDevice else { return false }
+            // 必须支持 muxed 媒体类型（USB 屏幕镜像特征）
+            return device.hasMediaType(.muxed)
         }
 
-        // 步骤 2：通过 DeviceInsightService 增强设备信息
-        iosDevices = iosDevices.map { enrichDevice($0) }
+        // 根据 FBDeviceControl 是否可用选择不同的发现策略
+        let iosDevices: [IOSDevice] = if isFBDeviceControlAvailable {
+            // FBDeviceControl 优先模式：以 FBDeviceControl 设备列表为主数据源
+            buildDeviceListFromFBDeviceControl(captureDevices: iosCaptureDevices)
+        } else {
+            // Fallback 模式：使用 AVFoundation 发现
+            buildDeviceListFromAVFoundation(captureDevices: iosCaptureDevices)
+        }
 
         // 检查设备列表或状态是否变化
         let hasDeviceChanges = iosDevices.map(\.id) != devices.map(\.id)
-        let hasStateChanges = !hasDeviceChanges && hasDeviceStateChanges(iosDevices)
+        let hasStateChanges = hasDeviceStateChanges(iosDevices)
 
         if hasDeviceChanges || hasStateChanges {
-            devices = iosDevices
-
-            if iosDevices.isEmpty {
-                if captureDevices.isEmpty {
-                    AppLogger.device.info("未发现任何外部视频设备")
-                } else {
-                    AppLogger.device.info("发现 \(captureDevices.count) 个外部设备，但没有可用的 iOS 屏幕镜像设备")
-                }
-            } else {
-                for device in iosDevices {
-                    // 使用增强的设备信息显示
-                    let displayInfo = buildDeviceDisplayInfo(device)
-                    if hasDeviceChanges {
-                        AppLogger.device.info("iOS 设备已更新: \(displayInfo)")
+            // 记录变化详情
+            if hasDeviceChanges {
+                let oldIds = devices.map(\.id)
+                let newIds = iosDevices.map(\.id)
+                AppLogger.device.info("设备列表变化: \(oldIds) -> \(newIds)")
+            }
+            if hasStateChanges {
+                for newDevice in iosDevices {
+                    if let oldDevice = devices.first(where: { $0.id == newDevice.id }) {
+                        if newDevice.state != oldDevice.state {
+                            AppLogger.device
+                                .info("设备状态变化: \(newDevice.displayName) \(oldDevice.state) -> \(newDevice.state)")
+                        }
+                        if newDevice.isOccupied != oldDevice.isOccupied {
+                            AppLogger.device
+                                .info(
+                                    "设备占用变化: \(newDevice.displayName) \(oldDevice.isOccupied) -> \(newDevice.isOccupied)"
+                                )
+                        }
                     }
                 }
             }
+
+            // 更新设备列表（触发 @Published）
+            devices = iosDevices
+
+            if iosDevices.isEmpty {
+                AppLogger.device.info("当前无 iOS 设备连接")
+            } else {
+                for device in iosDevices {
+                    let displayInfo = buildDeviceDisplayInfo(device)
+                    AppLogger.device.debug("当前设备: \(displayInfo)")
+                }
+            }
         }
+        // 无变化时不输出日志，减少控制台噪音
     }
 
-    /// 使用 DeviceInsightService 增强设备信息
-    private func enrichDevice(_ device: IOSDevice) -> IOSDevice {
-        // 通过 DeviceInsightService 获取增强信息
-        let insight = DeviceInsightService.shared.getDeviceInsight(for: device.id)
-        return device.enriched(with: insight)
+    // MARK: - FBDeviceControl 优先模式
+
+    /// 以 FBDeviceControl 设备列表为主数据源构建设备列表
+    /// - Parameter captureDevices: AVFoundation 发现的可捕获设备
+    /// - Returns: iOS 设备列表
+    ///
+    /// 优势：
+    /// - 设备信息直接来自 FBDeviceControl（准确、完整、无需清理名称后缀）
+    /// - 匹配逻辑更可靠（用准确的名称去匹配带后缀的名称）
+    private func buildDeviceListFromFBDeviceControl(captureDevices: [AVCaptureDevice]) -> [IOSDevice] {
+        let fbDevices = FBDeviceControlService.shared.listDevices()
+
+        guard !fbDevices.isEmpty else {
+            return buildDeviceListFromAVFoundation(captureDevices: captureDevices)
+        }
+
+        var iosDevices: [IOSDevice] = []
+
+        for dto in fbDevices {
+            // 为每个 FBDeviceControl 设备查找对应的 AVCaptureDevice
+            let matchedCaptureDevice = findAVCaptureDevice(for: dto, in: captureDevices)
+
+            // 从 FBDeviceControl DTO 创建 IOSDevice
+            var device = IOSDevice.from(dto: dto)
+
+            if let captureDevice = matchedCaptureDevice {
+                // 关联 AVCaptureDevice，更新 avUniqueID
+                device = device.withAVCaptureDevice(captureDevice)
+
+                // 用 AVFoundation 的实时状态更新（锁屏、占用）
+                let (avState, isOccupied, occupiedBy) = IOSDeviceStateMapper.detectState(from: captureDevice)
+                if captureDevice.isSuspended {
+                    device.state = .locked
+                } else if isOccupied {
+                    device.state = .busy
+                } else if device.state == .available, avState != IOSDevice.State.available {
+                    // 只有当 FBDeviceControl 认为设备可用时，才用 AVFoundation 状态覆盖
+                    device.state = avState
+                }
+                device.isOccupied = isOccupied
+                device.occupiedBy = occupiedBy
+            } else {
+                // 没有对应的 AVCaptureDevice
+                // 这通常意味着设备需要信任或解锁才能被 AVFoundation 发现
+                if device.state == .available {
+                    // FBDeviceControl 认为设备可用，但 AVFoundation 找不到
+                    // 最可能的原因是设备锁屏或未信任
+                    device.state = .notTrusted
+                }
+            }
+
+            iosDevices.append(device)
+        }
+
+        return iosDevices
+    }
+
+    /// 为 FBDeviceControl 设备查找对应的 AVCaptureDevice
+    /// - Parameters:
+    ///   - dto: FBDeviceControl 设备信息
+    ///   - captureDevices: 可用的 AVCaptureDevice 列表
+    /// - Returns: 匹配的 AVCaptureDevice，如果找不到返回 nil
+    private func findAVCaptureDevice(
+        for dto: FBDeviceInfoDTO,
+        in captureDevices: [AVCaptureDevice]
+    ) -> AVCaptureDevice? {
+        guard !captureDevices.isEmpty else { return nil }
+
+        // 策略 1：单设备自动匹配（最常见场景）
+        if captureDevices.count == 1 {
+            return captureDevices[0]
+        }
+
+        // 策略 2：通过设备名称匹配
+        // FBDeviceControl 的 deviceName 是准确的，AVFoundation 的 localizedName 可能带后缀
+        let fbDeviceName = dto.deviceName
+
+        // 精确匹配
+        if let exactMatch = captureDevices.first(where: { $0.localizedName == fbDeviceName }) {
+            return exactMatch
+        }
+
+        // 模糊匹配：AVFoundation 名称包含 FBDeviceControl 名称
+        // 例如："Sun的相机" 包含 "Sun"
+        if let fuzzyMatch = captureDevices.first(where: { $0.localizedName.contains(fbDeviceName) }) {
+            return fuzzyMatch
+        }
+
+        // 反向模糊匹配：FBDeviceControl 名称包含 AVFoundation 名称的清理版本
+        for captureDevice in captureDevices {
+            let cleanedAVName = cleanAVFoundationDeviceName(captureDevice.localizedName)
+            if fbDeviceName.contains(cleanedAVName) || cleanedAVName.contains(fbDeviceName) {
+                return captureDevice
+            }
+        }
+        return nil
+    }
+
+    /// 清理 AVFoundation 设备名称（去掉系统添加的后缀）
+    private func cleanAVFoundationDeviceName(_ name: String) -> String {
+        var cleanName = name
+
+        // 去掉常见后缀
+        let suffixes = [
+            "的相机", "的桌上视角相机", "的摄像头",
+            "'s Camera", "'s Desk View Camera", " Camera",
+        ]
+
+        for suffix in suffixes {
+            if cleanName.hasSuffix(suffix) {
+                cleanName = String(cleanName.dropLast(suffix.count))
+                break
+            }
+        }
+
+        // 去掉首尾引号
+        let quotePatterns: [(String, String)] = [
+            ("\"", "\""),
+            ("\u{201C}", "\u{201D}"),
+        ]
+
+        for (openQuote, closeQuote) in quotePatterns {
+            if cleanName.hasPrefix(openQuote), cleanName.hasSuffix(closeQuote) {
+                cleanName = String(cleanName.dropFirst().dropLast())
+                break
+            }
+        }
+
+        return cleanName.trimmingCharacters(in: .whitespaces)
+    }
+
+    // MARK: - AVFoundation Fallback 模式
+
+    /// 使用 AVFoundation 发现设备（FBDeviceControl 不可用时的 fallback）
+    private func buildDeviceListFromAVFoundation(captureDevices: [AVCaptureDevice]) -> [IOSDevice] {
+        AppLogger.device.debug("AVFoundation fallback 模式")
+
+        return captureDevices.compactMap { captureDevice -> IOSDevice? in
+            IOSDevice.from(captureDevice: captureDevice)
+        }
     }
 
     /// 检查设备状态（锁屏、占用等）是否发生变化
     private func hasDeviceStateChanges(_ newDevices: [IOSDevice]) -> Bool {
         for newDevice in newDevices {
+            // 使用 id 匹配设备（FBDeviceControl 模式下是真实 UDID，fallback 模式下是 avUniqueID）
             guard let oldDevice = devices.first(where: { $0.id == newDevice.id }) else {
                 continue
             }
 
             // 比较关键状态
             if
-                newDevice.isLocked != oldDevice.isLocked ||
+                newDevice.state != oldDevice.state ||
                 newDevice.isOccupied != oldDevice.isOccupied ||
                 newDevice.userPrompt != oldDevice.userPrompt {
                 return true
@@ -382,60 +556,10 @@ final class IOSDeviceProvider: NSObject, ObservableObject {
     }
 
     /// 刷新所有设备的状态信息
-    /// 检测状态变化（锁屏、占用等）并更新 UI
+    /// 在新架构下，直接重新运行设备发现流程
     private func refreshDeviceStates() async {
-        guard let session = discoverySession else { return }
-
-        AppLogger.device.debug("开始刷新设备状态，当前设备数: \(devices.count)")
-
-        var hasChanges = false
-
-        for captureDevice in session.devices {
-            // 使用 avUniqueID 匹配设备（因为 id 可能是真实 UDID）
-            guard let existingDevice = devices.first(where: { $0.avUniqueID == captureDevice.uniqueID }) else {
-                continue
-            }
-
-            // 刷新 DeviceInsightService 缓存并重新获取
-            let newInsight = DeviceInsightService.shared.refresh(udid: captureDevice.uniqueID)
-
-            // 检测状态变化
-            let oldPrompt = existingDevice.userPrompt
-            let oldState = existingDevice.state
-            let oldIsOccupied = existingDevice.isOccupied
-
-            let newState = newInsight.state
-            let newIsOccupied = newInsight.isOccupied
-            let newPrompt = newInsight.userPrompt
-
-            if newState != oldState || newIsOccupied != oldIsOccupied || newPrompt != oldPrompt {
-                hasChanges = true
-
-                // 记录状态变化
-                switch (oldState, newState) {
-                case (_, .locked) where oldState != .locked:
-                    AppLogger.device.warning("🔒 设备已锁屏/息屏: \(existingDevice.displayName)")
-                case (.locked, _) where newState != .locked:
-                    AppLogger.device.info("🔓 设备已解锁: \(existingDevice.displayName)")
-                case (_, .busy) where !oldIsOccupied && newIsOccupied:
-                    AppLogger.device.warning("⚠️ 设备被占用: \(existingDevice.displayName)")
-                case (.busy, _) where oldIsOccupied && !newIsOccupied:
-                    AppLogger.device.info("✅ 设备占用已释放: \(existingDevice.displayName)")
-                default:
-                    if let prompt = newPrompt, prompt != oldPrompt {
-                        AppLogger.device.warning("设备状态变化: \(existingDevice.displayName) - \(prompt)")
-                    } else if oldPrompt != nil, newPrompt == nil {
-                        AppLogger.device.info("设备状态恢复正常: \(existingDevice.displayName)")
-                    }
-                }
-            }
-        }
-
-        // 如果有变化，完整刷新设备列表（会触发 UI 更新）
-        if hasChanges {
-            AppLogger.device.info("检测到设备状态变化，刷新设备列表")
-            refreshDevices()
-        }
+        // 静默刷新，只在有变化时输出日志
+        refreshDevices()
     }
 
     private func setupNotifications() {

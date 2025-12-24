@@ -386,7 +386,6 @@ enum L10n {
             static var occupiedUnknown: String { "ios.hint.occupiedUnknown".localized }
             static var locked: String { "ios.hint.locked".localized }
             static var otherApp: String { "ios.hint.otherApp".localized }
-            static var sessionStopped: String { "ios.hint.sessionStopped".localized }
         }
     }
 

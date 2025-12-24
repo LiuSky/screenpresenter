@@ -173,7 +173,6 @@
 "ios.hint.occupiedUnknown" = "Device is occupied by another app, please close it and try again";
 "ios.hint.locked" = "Device is locked/sleeping, please unlock and try again";
 "ios.hint.otherApp" = "another app";
-"ios.hint.sessionStopped" = "Capture session stopped";
 
 // MARK: - Errors
 "error.connectionFailed" = "Connection failed: %@";

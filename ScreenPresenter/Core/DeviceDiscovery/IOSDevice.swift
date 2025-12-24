@@ -580,6 +580,29 @@ struct IOSDevice: Identifiable, Hashable {
         )
     }
 
+    /// 关联 AVCaptureDevice（用于 FBDeviceControl 优先模式）
+    /// - Parameter captureDevice: AVCaptureDevice 实例
+    /// - Returns: 更新了 avUniqueID 和 captureDevice 的新 IOSDevice
+    func withAVCaptureDevice(_ captureDevice: AVCaptureDevice) -> IOSDevice {
+        IOSDevice(
+            id: id, // 保持 FBDeviceControl 的真实 UDID
+            avUniqueID: captureDevice.uniqueID, // 使用 AVFoundation uniqueID
+            name: name,
+            modelID: modelID,
+            connectionType: connectionType,
+            locationID: locationID,
+            captureDevice: captureDevice,
+            state: state,
+            deviceName: deviceName,
+            productVersion: productVersion,
+            productType: productType,
+            modelName: modelName,
+            buildVersion: buildVersion,
+            isOccupied: isOccupied,
+            occupiedBy: occupiedBy
+        )
+    }
+
     // MARK: - AVCaptureDevice 操作
 
     /// 获取关联的 AVCaptureDevice

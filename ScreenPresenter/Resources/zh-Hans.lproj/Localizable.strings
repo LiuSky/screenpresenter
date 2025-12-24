@@ -173,7 +173,6 @@
 "ios.hint.occupiedUnknown" = "设备被其他应用占用，请关闭后重试";
 "ios.hint.locked" = "设备已锁屏/息屏，请解锁后重试";
 "ios.hint.otherApp" = "其他应用";
-"ios.hint.sessionStopped" = "捕获会话已停止";
 
 // MARK: - Errors
 "error.connectionFailed" = "连接失败: %@";

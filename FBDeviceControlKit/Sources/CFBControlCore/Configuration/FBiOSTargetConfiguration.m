@@ -407,7 +407,13 @@ FBOSVersionName const FBOSVersionNamemac = @"macOS";
 
 - (NSString *)versionString
 {
-  return [self.name componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet][1];
+  NSArray<NSString *> *components = [self.name componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+  // 安全检查：确保有版本号部分（如 "iOS 18.2" -> ["iOS", "18.2"]）
+  if (components.count >= 2) {
+    return components[1];
+  }
+  // 如果格式不符合预期（如 "unknown"），返回原始名称或默认值
+  return self.name ?: @"unknown";
 }
 
 #pragma mark NSCopying

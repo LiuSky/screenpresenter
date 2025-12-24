@@ -39,17 +39,11 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     /// 视频输出代理
     private var videoDelegate: VideoCaptureDelegate?
 
-    /// 是否正在捕获
-    private var isCapturingFlag: Bool = false
+    /// 是否正在捕获（使用 nonisolated(unsafe) 允许跨隔离域访问）
+    private nonisolated(unsafe) var isCapturingFlag: Bool = false
 
     /// 帧回调
     var onFrame: ((CVPixelBuffer) -> Void)?
-
-    /// 会话中断回调（设备锁屏等）
-    var onSessionInterrupted: ((String) -> Void)?
-
-    /// 会话恢复回调
-    var onSessionResumed: (() -> Void)?
 
     // MARK: - 初始化
 
@@ -113,8 +107,6 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         videoOutput = nil
         videoDelegate = nil
         onFrame = nil
-        onSessionInterrupted = nil
-        onSessionResumed = nil
 
         hasReceivedFirstFrame = false
 
@@ -132,6 +124,10 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
 
         AppLogger.capture.info("开始捕获 iOS 设备: \(iosDevice.name)")
 
+        // ⚠️ 重要：在启动会话之前设置标志，避免竞态条件
+        isCapturingFlag = true
+        hasReceivedFirstFrame = false
+
         // 在后台线程启动会话
         await withCheckedContinuation { continuation in
             captureQueue.async { [weak self] in
@@ -145,7 +141,6 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
                 }
 
                 DispatchQueue.main.async {
-                    self.isCapturingFlag = true
                     self.updateState(.capturing)
                     continuation.resume()
                 }
@@ -258,87 +253,20 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
             self?.handleVideoSampleBuffer(sampleBuffer)
         }
         videoOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
+        AppLogger.capture.info("✅ 视频代理已设置到输出")
 
         guard session.canAddOutput(videoOutput) else {
+            AppLogger.capture.error("❌ 无法添加视频输出到会话")
             throw DeviceSourceError.connectionFailed(L10n.capture.cannotAddOutput)
         }
         session.addOutput(videoOutput)
+        AppLogger.capture.info("✅ 视频输出已添加到会话")
 
         captureSession = session
         self.videoOutput = videoOutput
         videoDelegate = delegate
 
-        // 监听会话中断和恢复通知
-        setupSessionNotifications(for: session)
-
         AppLogger.capture.info("iOS 捕获会话已配置: \(iosDevice.name)")
-    }
-
-    // MARK: - 会话通知
-
-    private func setupSessionNotifications(for session: AVCaptureSession) {
-        // 会话开始运行
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(sessionDidStartRunning),
-            name: .AVCaptureSessionDidStartRunning,
-            object: session
-        )
-
-        // 会话停止运行
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(sessionDidStopRunning),
-            name: .AVCaptureSessionDidStopRunning,
-            object: session
-        )
-
-        // 会话运行时错误
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(sessionRuntimeError),
-            name: .AVCaptureSessionRuntimeError,
-            object: session
-        )
-    }
-
-    @objc private func sessionDidStartRunning(_: Notification) {
-        AppLogger.capture.info("🎬 捕获会话开始运行")
-        DispatchQueue.main.async { [weak self] in
-            self?.onSessionResumed?()
-        }
-    }
-
-    @objc private func sessionDidStopRunning(_: Notification) {
-        // 如果不是主动停止，则是中断
-        guard isCapturingFlag else { return }
-
-        AppLogger.capture.warning("⚠️ 捕获会话意外停止")
-        DispatchQueue.main.async { [weak self] in
-            self?.onSessionInterrupted?(L10n.ios.hint.sessionStopped)
-        }
-    }
-
-    @objc private func sessionRuntimeError(_ notification: Notification) {
-        guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError else {
-            AppLogger.capture.error("会话运行时错误（未知）")
-            return
-        }
-
-        AppLogger.capture.error("会话运行时错误: \(error.localizedDescription)")
-
-        // 通知 UI 显示错误
-        DispatchQueue.main.async { [weak self] in
-            self?.onSessionInterrupted?(error.localizedDescription)
-        }
-
-        // 尝试恢复会话
-        captureQueue.async { [weak self] in
-            guard let self, isCapturingFlag else { return }
-            if let session = captureSession, !session.isRunning {
-                session.startRunning()
-            }
-        }
     }
 
     // MARK: - 帧处理
@@ -347,10 +275,13 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     private var hasReceivedFirstFrame = false
 
     private func handleVideoSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        // 检查捕获状态
         guard isCapturingFlag else { return }
 
         // 获取 CVPixelBuffer
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            return
+        }
 
         // 从第一帧获取视频尺寸
         if !hasReceivedFirstFrame {
@@ -366,7 +297,7 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         let frame = CapturedFrame(sourceID: id, sampleBuffer: sampleBuffer)
         emitFrame(frame)
 
-        // 直接回调通知渲染视图（不持有 pixelBuffer）
+        // 直接回调通知渲染视图
         onFrame?(pixelBuffer)
     }
 }

@@ -206,9 +206,10 @@ final class DeviceInsightService {
         // 检测锁屏状态
         let isSuspended = captureDevice.isSuspended
 
-        // 尝试通过设备名称在 FBDeviceControl 中查找匹配的设备
-        // 注意：AVFoundation uniqueID ≠ iOS 真实 UDID，需要通过名称匹配
-        if let dto = findFBDeviceByName(deviceName) {
+        // 尝试在 FBDeviceControl 中查找匹配的设备
+        // 注意：AVFoundation uniqueID ≠ iOS 真实 UDID，需要通过其他特征匹配
+        // 优先使用 modelID（机型标识）匹配，fallback 到名称匹配
+        if let dto = findFBDevice(modelID: modelID, name: deviceName) {
             var insight = DeviceInsight.from(dto: dto)
             // 保留 AVFoundation 的 uniqueID 作为标识（用于 AVCaptureDevice 操作）
             insight = insight.withAVUniqueID(avUniqueID)
@@ -257,21 +258,24 @@ final class DeviceInsightService {
         )
     }
 
-    /// 通过设备名称在 FBDeviceControl 设备列表中查找匹配的设备
-    /// - Parameter name: 设备名称（来自 AVFoundation localizedName）
+    /// 在 FBDeviceControl 设备列表中查找匹配的设备
+    /// - Parameters:
+    ///   - modelID: 机型标识（来自 AVCaptureDevice.modelID，通常是 "iOS Device"）
+    ///   - name: 设备名称（来自 AVFoundation localizedName，可能带后缀如 "Sun的相机"）
     /// - Returns: 匹配的 FBDeviceInfoDTO，如果找不到返回 nil
     ///
+    /// 注意：AVFoundation 的 modelID 通常返回 "iOS Device"，无法提供具体型号
+    /// 因此主要依赖名称匹配和单设备自动匹配
+    ///
     /// 匹配策略优先级：
-    /// 1. 精确名称匹配
-    /// 2. 模糊名称匹配（包含关系）
-    /// 3. 单设备自动匹配（当只有一台 FBDeviceControl 设备时）
-    private func findFBDeviceByName(_ name: String) -> FBDeviceInfoDTO? {
+    /// 1. 单设备自动匹配（最常见场景，最可靠）
+    /// 2. 设备名称精确匹配
+    /// 3. 设备名称模糊匹配（包含关系）
+    /// 4. 机型标识匹配（仅当 modelID 是具体型号时，如 "iPhone17,1"）
+    private func findFBDevice(modelID: String, name: String) -> FBDeviceInfoDTO? {
         guard isFBDeviceControlAvailable else {
             return nil
         }
-
-        // 清理设备名称（去掉可能的后缀）
-        let cleanedName = cleanDeviceName(name)
 
         // 获取所有 FBDeviceControl 设备
         let allDevices = FBDeviceControlService.shared.listDevices()
@@ -293,37 +297,66 @@ final class DeviceInsightService {
             """)
         }
 
-        // 策略 1：精确匹配
+        // 策略 1：单设备自动匹配（最常见场景）
+        // 大多数用户只连接一台 iPhone，此策略最可靠
+        if allDevices.count == 1 {
+            let singleDevice = allDevices[0]
+            AppLogger.device
+                .info(
+                    "FBDeviceControl: 单设备自动匹配 -> '\(singleDevice.deviceName)' UDID: \(singleDevice.udid)"
+                )
+            return singleDevice
+        }
+
+        // 多设备场景：需要通过名称匹配
+        // 清理设备名称（去掉可能的后缀，用于名称匹配）
+        let cleanedName = cleanDeviceName(name)
+
+        AppLogger.device.debug("FBDeviceControl: 多设备场景，尝试名称匹配 '\(name)' -> '\(cleanedName)'")
+
+        // 策略 2：设备名称精确匹配
         if let exactMatch = allDevices.first(where: { $0.deviceName == cleanedName }) {
-            AppLogger.device.debug("FBDeviceControl: 精确匹配设备 '\(cleanedName)' -> UDID: \(exactMatch.udid)")
+            AppLogger.device.info("FBDeviceControl: 精确名称匹配 '\(cleanedName)' -> UDID: \(exactMatch.udid)")
             return exactMatch
         }
 
-        // 策略 2：模糊匹配（包含关系）
+        // 策略 3：设备名称模糊匹配（包含关系）
         if
             let fuzzyMatch = allDevices.first(where: {
                 $0.deviceName.contains(cleanedName) || cleanedName.contains($0.deviceName)
             }) {
             AppLogger.device
-                .debug(
-                    "FBDeviceControl: 模糊匹配设备 '\(cleanedName)' -> '\(fuzzyMatch.deviceName)' UDID: \(fuzzyMatch.udid)"
+                .info(
+                    "FBDeviceControl: 模糊名称匹配 '\(cleanedName)' -> '\(fuzzyMatch.deviceName)' UDID: \(fuzzyMatch.udid)"
                 )
             return fuzzyMatch
         }
 
-        // 策略 3：单设备自动匹配
-        // 当只有一台 FBDeviceControl 设备时，无论名称是否匹配都使用它
-        // 这解决了 AVFoundation 返回 "iOS Device" 等通用名称的问题
-        if allDevices.count == 1 {
-            let singleDevice = allDevices[0]
-            AppLogger.device
-                .info(
-                    "FBDeviceControl: 单设备自动匹配 '\(cleanedName)' -> '\(singleDevice.deviceName)' UDID: \(singleDevice.udid)"
-                )
-            return singleDevice
+        // 策略 4：机型标识匹配（仅当 AVFoundation 返回具体型号时）
+        // 注意：通常 modelID 是 "iOS Device"，这个策略很少生效
+        if !modelID.isEmpty, modelID != "iOS Device" {
+            let modelMatches = allDevices.filter { $0.productType == modelID }
+
+            if modelMatches.count == 1 {
+                let match = modelMatches[0]
+                AppLogger.device
+                    .info("FBDeviceControl: 机型匹配成功 '\(modelID)' -> '\(match.deviceName)' UDID: \(match.udid)")
+                return match
+            } else if modelMatches.count > 1 {
+                // 多台同型号设备，返回第一个
+                let firstMatch = modelMatches[0]
+                AppLogger.device
+                    .warning(
+                        "FBDeviceControl: 多台同型号设备 '\(modelID)'，使用第一个 '\(firstMatch.deviceName)' UDID: \(firstMatch.udid)"
+                    )
+                return firstMatch
+            }
         }
 
-        AppLogger.device.debug("FBDeviceControl: 未找到匹配设备 '\(cleanedName)'，可用设备: \(allDevices.map(\.deviceName))")
+        AppLogger.device
+            .warning(
+                "FBDeviceControl: 未找到匹配设备 (name: '\(cleanedName)')，可用设备: \(allDevices.map(\.deviceName))"
+            )
         return nil
     }
 
