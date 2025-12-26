@@ -1,159 +1,274 @@
 # ScreenPresenter
 
-macOS 设备投屏工具，支持同时展示 iOS 和 Android 设备屏幕。
+macOS 设备投屏工具，支持同时展示 iOS 和 Android 设备屏幕，具备仿真设备边框渲染效果。
 
-## 特性
+## ✨ 特性
 
-- 📱 **iOS 投屏**: 使用 QuickTime 同款路径 (CoreMediaIO + AVFoundation)
-- 🤖 **Android 投屏**: 通过 scrcpy 码流 + VideoToolbox 硬解
-- 🖥️ **Metal 渲染**: 使用 CAMetalLayer 实现高性能 60fps 渲染
-- 🔄 **多设备**: 支持同时展示两台设备（iOS + Android）
-- 🎛️ **纯 AppKit**: 无 SwiftUI 依赖，系统兼容性更好
+- 📱 **iOS 投屏**: QuickTime 同款路径 (CoreMediaIO + AVFoundation)
+- 🤖 **Android 投屏**: scrcpy 码流 + VideoToolbox 硬件解码
+- 🖥️ **Metal 渲染**: CVDisplayLink 驱动的 60fps 高性能渲染
+- 🔄 **双设备展示**: 支持同时展示两台设备（iOS + Android）
+- 📐 **仿真边框**: 根据真实设备型号绘制设备外观（动态岛/刘海/打孔屏/侧边按键）
+- 🎛️ **纯 AppKit**: 零 SwiftUI 依赖，最大化系统兼容性
+- 🌐 **多语言**: 中英文双语支持
 
-## 系统要求
+## 📋 系统要求
 
 - macOS 14.0+
 - Apple Silicon 或 Intel Mac
+- Xcode 15+
 
-## 架构说明
+## 🏗️ 架构说明
 
 ### 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| UI 框架 | AppKit (NSApplication/NSWindow/NSView) |
-| 渲染 | Metal (CAMetalLayer + CVMetalTextureCache) |
+| UI 框架 | AppKit (NSWindow / NSView) |
+| 渲染引擎 | Metal (CAMetalLayer + CVMetalTextureCache) |
+| 帧同步 | CVDisplayLink |
 | iOS 捕获 | CoreMediaIO + AVFoundation |
-| Android 捕获 | scrcpy 码流 + VideoToolbox |
-| 设备感知 | MobileDevice.framework (可选增强) |
+| Android 捕获 | scrcpy-server + Socket + VideoToolbox |
+| 设备识别 | FBDeviceControl (可选增强) |
 
 ### 模块结构
 
 ```
 ScreenPresenter/
 ├── Core/
-│   ├── AppState.swift              # 全局应用状态管理
+│   ├── AppState.swift                    # 全局应用状态 (Combine)
 │   ├── Rendering/
-│   │   ├── MetalRenderer.swift     # Metal 渲染器核心
-│   │   ├── MetalRenderView.swift   # CAMetalLayer 渲染视图
-│   │   └── FramePipeline.swift     # 帧数据结构
+│   │   ├── MetalRenderer.swift           # Metal 渲染器核心
+│   │   ├── MetalRenderView.swift         # CAMetalLayer + CVDisplayLink
+│   │   ├── SingleDeviceRenderView.swift  # 单设备渲染封装
+│   │   ├── VideoToolboxDecoder.swift     # H.264/H.265 硬件解码器
+│   │   └── CapturedFrame.swift           # 帧数据结构
 │   ├── DeviceSource/
-│   │   ├── DeviceSource.swift      # 设备源协议
-│   │   ├── IOSDeviceSource.swift   # iOS 设备源 (AVFoundation)
-│   │   ├── ScrcpyDeviceSource.swift # Android 设备源 (scrcpy)
-│   │   └── IOSScreenMirrorActivator.swift # CoreMediaIO 激活器
+│   │   ├── DeviceSource.swift            # 设备源协议
+│   │   ├── IOSDeviceSource.swift         # iOS 设备源 (AVFoundation)
+│   │   ├── IOSScreenMirrorActivator.swift # CoreMediaIO DAL 激活
+│   │   ├── ScrcpyDeviceSource.swift      # Android 设备源
+│   │   └── Scrcpy/
+│   │       ├── ScrcpyServerLauncher.swift    # scrcpy-server 启动器
+│   │       ├── ScrcpySocketAcceptor.swift    # Socket 连接管理
+│   │       └── ScrcpyVideoStreamParser.swift # 码流解析器
 │   ├── DeviceDiscovery/
-│   │   ├── IOSDeviceProvider.swift # iOS 设备发现
-│   │   └── AndroidDeviceProvider.swift # Android 设备发现
-│   ├── DeviceInsight/
-│   │   └── DeviceInsightService.swift # MobileDevice 增强层
+│   │   ├── IOSDevice.swift               # iOS 设备模型
+│   │   ├── IOSDeviceProvider.swift       # iOS 设备发现
+│   │   ├── IOSDeviceStateMapper.swift    # 设备状态映射
+│   │   ├── AndroidDevice.swift           # Android 设备模型
+│   │   ├── AndroidDeviceProvider.swift   # Android 设备发现
+│   │   └── DeviceControl/
+│   │       ├── FBDeviceControlService.swift  # FBDeviceControl 封装
+│   │       └── AndroidADBService.swift       # ADB 服务封装
+│   ├── Preferences/
+│   │   └── UserPreferences.swift         # 用户偏好设置
 │   ├── Process/
-│   │   ├── ProcessRunner.swift     # 进程管理
-│   │   └── ToolchainManager.swift  # 工具链管理
-│   └── ...
+│   │   ├── ProcessRunner.swift           # 进程管理
+│   │   └── ToolchainManager.swift        # 工具链管理
+│   └── Utilities/                        # 工具类
 ├── Views/
-│   ├── MainViewController.swift    # 主视图控制器
-│   └── Components/                 # UI 组件
+│   ├── MainViewController.swift          # 主视图控制器
+│   ├── PreferencesWindowController.swift # 偏好设置窗口
+│   └── Components/
+│       ├── PreviewContainerView.swift    # 预览容器（布局动画）
+│       ├── DevicePanelView.swift         # 设备面板（边框+渲染+状态）
+│       ├── DeviceBezelView.swift         # 设备边框绘制
+│       ├── DeviceModel.swift             # 设备型号定义 (50+ 型号)
+│       ├── DeviceStatusView.swift        # 设备状态视图
+│       ├── DeviceCaptureInfoView.swift   # 捕获信息覆盖层
+│       └── ToastView.swift               # Toast 通知
 └── Resources/
-    └── Tools/                      # 内置工具 (scrcpy, adb)
+    ├── Tools/
+    │   ├── scrcpy                        # Android 投屏客户端
+    │   ├── scrcpy-server                 # Android 投屏服务端
+    │   └── platform-tools/
+    │       └── adb                       # Android 调试工具
+    ├── en.lproj/                         # 英文本地化
+    └── zh-Hans.lproj/                    # 简体中文本地化
 ```
 
 ### 数据流
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                     iOS 设备                              │
-│  USB → CoreMediaIO → AVFoundation → CMSampleBuffer       │
-│                           ↓                               │
-│                    CVPixelBuffer                          │
-└────────────────────────┬─────────────────────────────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │  CVMetalTextureCache │
-              │     ↓        ↓       │
-              │  MTLTexture  MTLTexture
-              │     (left)   (right) │
-              └─────────┬───────────┘
-                        │
-                        ▼
-              ┌─────────────────────┐
-              │   Metal Renderer    │
-              │    (CAMetalLayer)   │
-              │  Aspect-fit + 合成   │
-              └─────────────────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │    MetalRenderView  │
-              │   (CVDisplayLink)   │
-              └─────────────────────┘
-                         ↑
-                         │
-              ┌─────────────────────┐
-              │      Android 设备    │
-              │ scrcpy → H.264/H.265 │
-              │        ↓             │
-              │   VideoToolbox 硬解  │
-              │        ↓             │
-              │    CVPixelBuffer     │
-              └─────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                         iOS 设备                              │
+│  USB → CoreMediaIO DAL → AVCaptureSession → CMSampleBuffer   │
+│                              ↓                                │
+│                       CVPixelBuffer (BGRA)                    │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
+                  ┌─────────────────────┐
+                  │  CVMetalTextureCache │
+                  │         ↓            │
+                  │     MTLTexture       │
+                  └──────────┬──────────┘
+                             │
+                             ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      Metal Renderer                            │
+│  CAMetalLayer + CVDisplayLink (60fps) + Aspect-fit + 圆角遮罩  │
+└────────────────────────────────────────────────────────────────┘
+                             ↑
+                             │
+                  ┌──────────┴──────────┐
+                  │  CVMetalTextureCache │
+                  │         ↑            │
+                  │   CVPixelBuffer      │
+                  └──────────┬──────────┘
+                             │
+┌────────────────────────────┴─────────────────────────────────┐
+│                       Android 设备                            │
+│  scrcpy-server (设备端) → H.264/H.265 码流                    │
+│         ↓                                                     │
+│  Socket (ADB 端口转发) → ScrcpyVideoStreamParser             │
+│         ↓                                                     │
+│  VideoToolbox 硬件解码 → CVPixelBuffer                        │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## iOS 投屏说明
+## 📱 iOS 投屏
 
-### 主线路径 (CMIO + AVFoundation)
+### QuickTime 同款路径
 
-这是 QuickTime Player 使用的同款路径，稳定可靠：
+这是与 QuickTime Player 完全相同的捕获路径，稳定可靠：
 
-1. **CoreMediaIO**: 设置 `kCMIOHardwarePropertyAllowScreenCaptureDevices = true`
-2. **AVFoundation**: 使用 `AVCaptureSession` 捕获 iOS 屏幕设备
-3. **帧输出**: `CMSampleBuffer → CVPixelBuffer → MTLTexture`
+1. **CoreMediaIO DAL 激活**: 设置 `kCMIOHardwarePropertyAllowScreenCaptureDevices = true`
+2. **AVCaptureSession**: 捕获 iOS 设备的屏幕输出
+3. **直接像素传输**: `CMSampleBuffer → CVPixelBuffer → MTLTexture`
 
-### MobileDevice 增强层
+### FBDeviceControl 增强层
 
-MobileDevice.framework 作为**可选增强层**：
-- 提供：设备名称、型号、系统版本、信任状态
-- **不影响主捕获流程**：MobileDevice 失败时，投屏功能仍可用
+`FBDeviceControl.framework` 作为**可选增强层**：
 
-## Android 投屏说明
+| 功能 | 来源 |
+|------|------|
+| 设备 UDID | FBDeviceControl |
+| 设备名称 | FBDeviceControl |
+| 产品型号 (iPhone16,1) | FBDeviceControl |
+| 系统版本 | FBDeviceControl |
+| 信任状态 | FBDeviceControl |
+
+> ⚠️ **重要**: FBDeviceControl 失败不影响主捕获流程，仅降级为 AVFoundation 模式。
+
+## 🤖 Android 投屏
 
 ### 内置工具
 
-应用内置 scrcpy 和 adb，支持零配置使用：
+应用内置完整工具链，支持零配置使用：
 
 ```
 Resources/Tools/
-├── scrcpy           # Android 投屏工具
+├── scrcpy                    # 投屏客户端（仅解析用）
+├── scrcpy-server             # 投屏服务端（推送到设备运行）
 └── platform-tools/
-    └── adb          # Android 调试工具
+    └── adb                   # Android 调试桥
 ```
 
-### 启动前自检
-
-1. `adb version` - 检查 adb 可用性
-2. `adb start-server` - 启动 adb 服务
-3. `adb devices` - 检查设备授权状态
-
-### 码流解码
+### 连接流程
 
 ```
-scrcpy --no-display → H.264/H.265 码流
-        ↓
-   VideoToolbox 硬解
-        ↓
-    CVPixelBuffer
-        ↓
-     MTLTexture
+ScreenPresenter                    adb                     Android Device
+     │                              │                            │
+     │──── adb devices ────────────>│                            │
+     │<─── 设备列表 ────────────────│                            │
+     │                              │                            │
+     │──── adb push scrcpy-server ─>│────── 传输服务端 ─────────>│
+     │                              │                            │
+     │──── adb forward tcp:27183 ──>│────── 端口转发 ───────────>│
+     │                              │                            │
+     │──── adb shell app_process ──>│────── 启动服务端 ─────────>│
+     │                              │                            │
+     │<═══════════════ Socket 连接 ═════════════════════════════>│
+     │<═══════════════ H.264/H.265 码流 ════════════════════════>│
+     │                              │                            │
+     │──── VideoToolbox 硬解 ───────│                            │
 ```
 
-## 稳定性机制
+### 可配置参数
 
-- **插拔恢复**: 自动检测设备插拔，支持重连
-- **错误诊断**: 结构化日志记录（设备信息、fps、错误分类）
-- **降级策略**: MobileDevice 失效不影响主功能
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| 码率 | 8 Mbps | 4 / 8 / 16 / 32 Mbps |
+| 最大分辨率 | 原始 | 720 / 1080 / 1440 / 2160 |
+| 编解码器 | H.264 | H.264 / H.265 |
 
-## 构建运行
+### 丢帧策略
+
+VideoToolbox 解码器内置智能丢帧策略：
+
+```swift
+// 待解码帧超过阈值时，丢弃非关键帧
+private let maxPendingFrames = 3
+
+if currentPending > maxPendingFrames, !nalUnit.isKeyFrame {
+    droppedFrameCount += 1
+    return  // 丢弃非关键帧
+}
+```
+
+## 📐 设备边框渲染
+
+### 支持的设备型号
+
+应用根据真实设备规格绘制精确的设备边框：
+
+**iOS 设备 (16 种)**
+- iPhone 17 Pro / 17 / 16 Pro / 16 / 15 Pro / 15 / 14 Pro / 14
+- iPhone 13 / 13 Pro / 12 / 11 / X 系列
+- iPhone SE / Legacy
+- 通用 iPhone
+
+**Android 设备 (40+ 种)**
+- Samsung Galaxy S / S Ultra / A / Note / Fold / Flip
+- Google Pixel / Pixel Pro / Pixel Fold / Pixel A
+- 小米 Mi / Ultra / MIX / Redmi / Redmi Note / Redmi K / POCO
+- 一加 OnePlus / Ace / Nord
+- OPPO Find / Find X / Reno / A
+- Vivo X / X Fold / S / Y / iQOO / iQOO Neo
+- 华为 P / Mate / Mate X / Nova
+- 荣耀 Honor / Magic / X
+- Realme GT / Realme
+- Sony Xperia 1 / 5 / 10
+- Motorola Edge / Razr / Moto G
+- ASUS ROG / Zenfone
+- 游戏手机: Red Magic / Black Shark / Legion
+- 其他: Meizu / Nothing Phone / TCL / ZTE
+- 通用 Android
+
+### 边框特性
+
+| 特性 | 说明 |
+|------|------|
+| 动态岛 | iPhone 14 Pro+ |
+| 刘海 | iPhone X - 14 |
+| 打孔屏 | 大多数 Android |
+| Home 按钮 | iPhone SE / Legacy |
+| 侧边按键 | 静音开关 / 音量键 / 电源键 |
+| 连续曲率圆角 | `.continuous` 圆角风格 |
+
+## 🔧 用户设置
+
+### 通用设置
+- 布局模式（双设备 / 单设备）
+- iOS 设备位置（左侧 / 右侧）
+- 自动重连开关
+- 背景透明度
+- 显示设备边框
+
+### Android 设置
+- 码率调节
+- 分辨率限制
+- 编解码器选择
+
+### 工具链设置
+- 自定义 adb 路径
+- 自定义 scrcpy 路径
+- 自定义 scrcpy-server 路径
+- 权限检查与授予
+
+## 🚀 构建运行
 
 1. 使用 Xcode 15+ 打开 `ScreenPresenter.xcodeproj`
 2. 选择 `My Mac` 作为目标设备
@@ -161,10 +276,27 @@ scrcpy --no-display → H.264/H.265 码流
 
 ### 首次使用
 
-1. 授予摄像头权限（用于捕获 iOS 设备）
-2. 连接 iOS 设备，在设备上点击"信任此电脑"
-3. Android 设备需开启"USB 调试"，连接后在设备上点击"允许"
+**iOS 设备**:
+1. 授予摄像头权限（系统会弹窗，用于捕获 iOS 设备）
+2. 通过 USB 连接 iOS 设备
+3. 在 iOS 设备上点击"信任此电脑"
+4. 解锁设备屏幕
 
-## 许可证
+**Android 设备**:
+1. 在设置中开启"USB 调试"
+2. 通过 USB 连接 Android 设备
+3. 在设备上点击"允许 USB 调试"
+
+## 📦 打包发布
+
+使用内置脚本构建 DMG：
+
+```bash
+./build_dmg.sh
+```
+
+输出: `build/ScreenPresenter_<版本号>_<构建号>.dmg`
+
+## 📄 许可证
 
 内部工具，仅供内部使用。
