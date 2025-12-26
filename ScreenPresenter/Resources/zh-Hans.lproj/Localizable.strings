@@ -143,8 +143,6 @@
 "prefs.scrcpy.noLimit" = "不限制";
 "prefs.scrcpy.pixels" = "%d 像素";
 "prefs.scrcpy.mbps" = "%d Mbps";
-"prefs.scrcpy.useBundledAdb" = "使用内置 adb";
-"prefs.scrcpy.useBundledAdbNote" = "使用应用内置的 adb 工具，而非系统安装的版本";
 "prefs.scrcpy.port" = "连接端口";
 "prefs.scrcpy.codec" = "视频编解码器";
 
@@ -323,4 +321,3 @@
 "install.installSuccess" = "✅ scrcpy 安装成功\n";
 "install.installFailed" = "❌ 安装失败: %@\n";
 "install.verifyingInstall" = "🔍 正在验证安装...\n";
-

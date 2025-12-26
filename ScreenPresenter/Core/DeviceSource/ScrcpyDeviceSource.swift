@@ -298,8 +298,14 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         let scrcpyVersion = await getScrcpyVersion()
 
         // 创建服务器启动器
+        guard let adbService else {
+            updateState(.disconnected)
+            AppLogger.connection.error("❌ 缺少 adbService，无法启动 scrcpy: \(displayName)")
+            return
+        }
+
         serverLauncher = ScrcpyServerLauncher(
-            adbService: adbService!,
+            adbService: adbService,
             serverLocalPath: serverPath,
             port: currentPort,
             scrcpyVersion: scrcpyVersion

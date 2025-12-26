@@ -10,7 +10,6 @@
 //
 
 import AppKit
-import SnapKit
 
 // MARK: - 带内边距的按钮
 
@@ -45,16 +44,16 @@ final class DevicePanelView: NSView {
     // MARK: - UI 组件
 
     /// 设备边框视图
-    private var bezelView: DeviceBezelView!
+    private let bezelView = DeviceBezelView()
 
     /// Metal 渲染视图（显示设备画面，嵌入到 screenContentView 中）
-    private(set) var renderView: SingleDeviceRenderView!
+    private(set) var renderView = SingleDeviceRenderView()
 
     /// 状态视图（显示在边框屏幕区域内）
-    private var statusView: DeviceStatusView!
+    private let statusView = DeviceStatusView()
 
     /// 捕获中的信息视图
-    private var captureInfoView: DeviceCaptureInfoView!
+    private let captureInfoView = DeviceCaptureInfoView()
 
     /// 当前设备系统版本（用于 captureInfoView 显示）
     private var currentDeviceSystemVersion: String?
@@ -128,25 +127,18 @@ final class DevicePanelView: NSView {
     }
 
     private func setupBezelView() {
-        bezelView = DeviceBezelView()
         addSubview(bezelView)
-        bezelView.snp.makeConstraints { make in
-            // 填满父视图，bezelView 内部会根据 aspectRatio 自动调整设备尺寸
-            make.edges.equalToSuperview()
-        }
 
         // 添加 Metal 渲染视图到 screenContentView（画面会跟随 bezel 动画）
-        renderView = SingleDeviceRenderView()
         bezelView.screenContentView.addSubview(renderView)
-        renderView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
     }
 
     private func setupTrackingArea() {
         let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
-        addTrackingArea(trackingArea!)
+        if let trackingArea {
+            addTrackingArea(trackingArea)
+        }
     }
 
     override func updateTrackingAreas() {
@@ -158,7 +150,9 @@ final class DevicePanelView: NSView {
 
         let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
-        addTrackingArea(trackingArea!)
+        if let trackingArea {
+            addTrackingArea(trackingArea)
+        }
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -224,11 +218,7 @@ final class DevicePanelView: NSView {
     }
 
     private func setupStatusContent() {
-        statusView = DeviceStatusView()
         bezelView.screenContentView.addSubview(statusView)
-        statusView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
 
         // 设置回调
         statusView.onActionTapped = { [weak self] in
@@ -248,12 +238,8 @@ final class DevicePanelView: NSView {
 
     private func setupCaptureInfoView() {
         // 捕获状态覆盖视图（覆盖整个 screenContentView 区域）
-        captureInfoView = DeviceCaptureInfoView()
         captureInfoView.isHidden = true
         bezelView.screenContentView.addSubview(captureInfoView)
-        captureInfoView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
 
         captureInfoView.onStopTapped = { [weak self] in
             self?.onStopAction?()
@@ -747,47 +733,48 @@ final class DevicePanelView: NSView {
 
             renderView.removeFromSuperview()
             bezelView.screenContentView.addSubview(renderView)
-            renderView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
 
             statusView.removeFromSuperview()
             bezelView.screenContentView.addSubview(statusView)
-            statusView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
 
             captureInfoView.removeFromSuperview()
             bezelView.screenContentView.addSubview(captureInfoView)
-            captureInfoView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
         } else {
             // 隐藏 bezel：将 renderView、statusView、captureInfoView 移到 self 中
             bezelView.isHidden = true
 
             renderView.removeFromSuperview()
             addSubview(renderView)
-            renderView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
 
             statusView.removeFromSuperview()
             addSubview(statusView)
-            statusView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
 
             captureInfoView.removeFromSuperview()
             addSubview(captureInfoView)
-            captureInfoView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
         }
 
         // 强制重新布局
         needsLayout = true
         layoutSubtreeIfNeeded()
+    }
+
+    private func updateContentFrames() {
+        let containerView: NSView = showBezel ? bezelView.screenContentView : self
+        let targetFrame = containerView.bounds
+        renderView.frame = targetFrame
+        statusView.frame = targetFrame
+        captureInfoView.frame = targetFrame
+    }
+
+    override func layout() {
+        super.layout()
+        // 禁用隐式动画，避免 frame 变化时子视图产生动画
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        bezelView.frame = bounds
+        bezelView.layoutSubtreeIfNeeded()
+        updateContentFrames()
+        CATransaction.commit()
     }
 
     // MARK: - 私有方法

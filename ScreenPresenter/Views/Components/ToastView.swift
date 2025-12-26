@@ -10,7 +10,6 @@
 //
 
 import AppKit
-import SnapKit
 
 // MARK: - Toast 样式
 
@@ -47,13 +46,16 @@ final class ToastView: NSView {
     private let iconView: NSImageView
     private let label: NSTextField
     private let copyButton: NSButton
-    private let stackView: NSStackView
 
     // MARK: - 属性
 
     private let message: String
     private let style: ToastStyle
     private let copyable: Bool
+    private let contentInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+    private let iconSize: CGFloat = 18
+    private let copySize: CGFloat = 20
+    private let spacing: CGFloat = 10
 
     // MARK: - 计时器相关
 
@@ -73,8 +75,6 @@ final class ToastView: NSView {
         iconView = NSImageView()
         label = NSTextField(labelWithString: message)
         copyButton = NSButton()
-        stackView = NSStackView()
-
         super.init(frame: .zero)
 
         setupUI()
@@ -131,28 +131,10 @@ final class ToastView: NSView {
         copyButton.isHidden = !copyable
         copyButton.setContentHuggingPriority(.required, for: .horizontal)
 
-        // 堆栈布局
-        stackView.orientation = .horizontal
-        stackView.spacing = 10
-        stackView.alignment = .centerY
-        stackView.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
-        stackView.addArrangedSubview(iconView)
-        stackView.addArrangedSubview(label)
+        addSubview(iconView)
+        addSubview(label)
         if copyable {
-            stackView.addArrangedSubview(copyButton)
-        }
-
-        addSubview(stackView)
-
-        // 约束
-        stackView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        iconView.snp.makeConstraints { make in
-            make.size.equalTo(18)
-        }
-        copyButton.snp.makeConstraints { make in
-            make.size.equalTo(20)
+            addSubview(copyButton)
         }
     }
 
@@ -165,7 +147,9 @@ final class ToastView: NSView {
             owner: self,
             userInfo: nil
         )
-        addTrackingArea(trackingArea!)
+        if let trackingArea {
+            addTrackingArea(trackingArea)
+        }
     }
 
     override func updateTrackingAreas() {
@@ -183,7 +167,9 @@ final class ToastView: NSView {
             owner: self,
             userInfo: nil
         )
-        addTrackingArea(trackingArea!)
+        if let trackingArea {
+            addTrackingArea(trackingArea)
+        }
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -220,6 +206,67 @@ final class ToastView: NSView {
         } completionHandler: { [weak self] in
             self?.removeFromSuperview()
         }
+    }
+
+    override func layout() {
+        super.layout()
+        layoutContent()
+    }
+
+    private func layoutContent() {
+        let availableWidth = bounds.width - contentInsets.left - contentInsets.right
+        let copyWidth = copyable ? copySize : 0
+        let labelWidth = max(
+            0,
+            availableWidth - iconSize - spacing - (copyable ? (spacing + copyWidth) : 0)
+        )
+        let labelSize = labelSize(maxWidth: labelWidth)
+
+        let contentHeight = max(iconSize, labelSize.height, copyWidth)
+        let y = contentInsets.bottom + (contentHeight - iconSize) / 2
+        iconView.frame = CGRect(x: contentInsets.left, y: y, width: iconSize, height: iconSize)
+
+        let labelX = iconView.frame.maxX + spacing
+        let labelY = contentInsets.bottom + (contentHeight - labelSize.height) / 2
+        label.frame = CGRect(x: labelX, y: labelY, width: labelWidth, height: labelSize.height)
+
+        if copyable {
+            let copyX = label.frame.maxX + spacing
+            let copyY = contentInsets.bottom + (contentHeight - copySize) / 2
+            copyButton.frame = CGRect(x: copyX, y: copyY, width: copySize, height: copySize)
+        }
+    }
+
+    private func preferredSize(maxWidth: CGFloat) -> CGSize {
+        // 计算内容区域的最大可用宽度
+        let availableContentWidth = maxWidth - contentInsets.left - contentInsets.right
+        let copyWidth = copyable ? copySize : 0
+        let maxLabelWidth = max(
+            0,
+            availableContentWidth - iconSize - spacing - (copyable ? (spacing + copyWidth) : 0)
+        )
+
+        // 获取文本实际需要的尺寸
+        let labelSize = labelSize(maxWidth: maxLabelWidth)
+        let contentHeight = max(iconSize, labelSize.height, copyWidth)
+        let height = contentInsets.top + contentHeight + contentInsets.bottom
+
+        // 根据实际文本宽度计算总宽度
+        let actualContentWidth = iconSize + spacing + labelSize.width + (copyable ? (spacing + copyWidth) : 0)
+        let actualWidth = contentInsets.left + actualContentWidth + contentInsets.right
+
+        // 返回实际需要的宽度，但不超过最大宽度
+        return CGSize(width: min(actualWidth, maxWidth), height: height)
+    }
+
+    private func labelSize(maxWidth: CGFloat) -> CGSize {
+        guard maxWidth > 0 else { return .zero }
+        let bounds = NSRect(x: 0, y: 0, width: maxWidth, height: .greatestFiniteMagnitude)
+        if let size = label.cell?.cellSize(forBounds: bounds) {
+            return CGSize(width: min(maxWidth, size.width), height: size.height)
+        }
+        let size = label.intrinsicContentSize
+        return CGSize(width: min(maxWidth, size.width), height: size.height)
     }
 
     // MARK: - 操作
@@ -263,13 +310,16 @@ final class ToastView: NSView {
         toast.alphaValue = 0
         view.addSubview(toast)
 
-        // 约束
-        toast.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(44)
-            make.width.lessThanOrEqualToSuperview().multipliedBy(0.8)
-            make.width.greaterThanOrEqualTo(200)
-        }
+        // 最大宽度 = 父视图宽度 - 左右边距（各 20）
+        let horizontalMargin: CGFloat = 20
+        let maxWidth = max(200, view.bounds.width - horizontalMargin * 2)
+        let size = toast.preferredSize(maxWidth: maxWidth)
+        toast.frame = CGRect(
+            x: (view.bounds.width - size.width) / 2,
+            y: view.bounds.height - 44 - size.height,
+            width: size.width,
+            height: size.height
+        )
 
         // 淡入动画
         NSAnimationContext.runAnimationGroup { context in

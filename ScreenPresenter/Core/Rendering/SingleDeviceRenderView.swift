@@ -18,7 +18,7 @@ import QuartzCore
 final class SingleDeviceRenderView: NSView {
     // MARK: - Metal 组件
 
-    private var metalLayer: CAMetalLayer!
+    private var metalLayer: CAMetalLayer?
     private var device: MTLDevice?
     private var commandQueue: MTLCommandQueue?
     private var pipelineState: MTLRenderPipelineState?
@@ -131,12 +131,12 @@ final class SingleDeviceRenderView: NSView {
         }
         self.device = device
 
-        metalLayer.device = device
-        metalLayer.pixelFormat = .bgra8Unorm
-        metalLayer.framebufferOnly = true
-        metalLayer.isOpaque = false
-        metalLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
-        metalLayer.masksToBounds = true
+        metal.device = device
+        metal.pixelFormat = .bgra8Unorm
+        metal.framebufferOnly = true
+        metal.isOpaque = false
+        metal.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        metal.masksToBounds = true
 
         // 创建命令队列
         guard let commandQueue = device.makeCommandQueue() else {

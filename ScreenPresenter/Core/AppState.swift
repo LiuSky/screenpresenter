@@ -31,7 +31,7 @@ final class AppState {
     private(set) var iosDeviceProvider = IOSDeviceProvider()
 
     /// Android 设备提供者
-    private(set) var androidDeviceProvider: AndroidDeviceProvider!
+    private(set) var androidDeviceProvider: AndroidDeviceProvider
 
     /// iOS 设备源
     private(set) var iosDeviceSource: IOSDeviceSource?

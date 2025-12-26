@@ -9,7 +9,6 @@
 //
 
 import AppKit
-import SnapKit
 
 // MARK: - 设备状态视图
 
@@ -32,27 +31,27 @@ final class DeviceStatusView: NSView {
     // MARK: - UI 组件
 
     /// 内容居中容器
-    private var contentContainer: NSView!
+    private let contentContainer = NSView()
     /// 加载指示器（菊花）
-    private var loadingIndicator: NSProgressIndicator!
+    private let loadingIndicator = NSProgressIndicator()
     /// 标题（设备名称或提示文案）
-    private var titleLabel: NSTextField!
+    private let titleLabel = NSTextField(labelWithString: "")
     /// 状态栏容器
-    private var statusStackView: NSStackView!
+    private let statusContainer = NSView()
     /// 状态指示灯
-    private var statusIndicator: NSView!
+    private let statusIndicator = NSView()
     /// 状态文本
-    private var statusLabel: NSTextField!
+    private let statusLabel = NSTextField(labelWithString: "")
     /// 操作按钮
-    private var actionButton: PaddedButton!
+    private let actionButton = PaddedButton(horizontalPadding: 20, verticalPadding: 12)
     /// 操作按钮加载指示器
-    private var actionLoadingIndicator: NSProgressIndicator!
+    private let actionLoadingIndicator = NSProgressIndicator()
     /// 副标题/提示
-    private var subtitleLabel: NSTextField!
+    private let subtitleLabel = NSTextField(labelWithString: "")
     /// 刷新按钮
-    private var refreshButton: PaddedButton!
+    private let refreshButton = PaddedButton(horizontalPadding: 10, verticalPadding: 6)
     /// 刷新加载指示器
-    private var refreshLoadingIndicator: NSProgressIndicator!
+    private let refreshLoadingIndicator = NSProgressIndicator()
 
     // MARK: - 字体配置
 
@@ -100,18 +99,10 @@ final class DeviceStatusView: NSView {
     }
 
     private func setupContentContainer() {
-        contentContainer = NSView()
         addSubview(contentContainer)
-        contentContainer.snp.makeConstraints { make in
-            // 降低所有约束优先级，避免父视图宽度为 0 时产生冲突
-            make.center.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview().offset(20)
-            make.trailing.lessThanOrEqualToSuperview().offset(-20)
-        }
     }
 
     private func setupLoadingIndicator() {
-        loadingIndicator = NSProgressIndicator()
         loadingIndicator.style = .spinning
         loadingIndicator.controlSize = .regular
         loadingIndicator.isIndeterminate = true
@@ -119,59 +110,33 @@ final class DeviceStatusView: NSView {
         // 强制使用 darkAqua 外观，确保在深色背景下菊花图标可见（白色）
         loadingIndicator.appearance = NSAppearance(named: .darkAqua)
         contentContainer.addSubview(loadingIndicator)
-        loadingIndicator.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.centerX.equalToSuperview()
-            make.size.equalTo(32)
-        }
     }
 
     private func setupTitleLabel() {
-        titleLabel = NSTextField(labelWithString: "")
         titleLabel.font = NSFont.systemFont(ofSize: 28, weight: .semibold)
         titleLabel.textColor = Colors.title
         titleLabel.alignment = .center
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.maximumNumberOfLines = 1
         contentContainer.addSubview(titleLabel)
-        titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(loadingIndicator.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
     }
 
     private func setupStatusStack() {
-        statusStackView = NSStackView()
-        statusStackView.orientation = .horizontal
-        statusStackView.spacing = 8
-        statusStackView.alignment = .centerY
-        contentContainer.addSubview(statusStackView)
-        statusStackView.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(12)
-            make.centerX.equalToSuperview()
-        }
+        contentContainer.addSubview(statusContainer)
 
         // 状态指示灯
-        statusIndicator = NSView()
         statusIndicator.wantsLayer = true
         statusIndicator.layer?.cornerRadius = 5
         statusIndicator.layer?.backgroundColor = NSColor.systemGray.cgColor
-        statusStackView.addArrangedSubview(statusIndicator)
-        statusIndicator.snp.makeConstraints { make in
-            make.size.equalTo(10)
-        }
+        statusContainer.addSubview(statusIndicator)
 
         // 状态文本
-        statusLabel = NSTextField(labelWithString: "")
         statusLabel.font = NSFont.systemFont(ofSize: 16)
         statusLabel.textColor = Colors.status
-        statusStackView.addArrangedSubview(statusLabel)
+        statusContainer.addSubview(statusLabel)
     }
 
     private func setupActionButton() {
-        actionButton = PaddedButton(horizontalPadding: 20, verticalPadding: 12)
         actionButton.target = self
         actionButton.action = #selector(actionTapped)
         actionButton.wantsLayer = true
@@ -182,42 +147,26 @@ final class DeviceStatusView: NSView {
         actionButton.refusesFirstResponder = true
         setActionButtonTitle(L10n.overlayUI.startCapture)
         contentContainer.addSubview(actionButton)
-        actionButton.snp.makeConstraints { make in
-            make.top.equalTo(statusStackView.snp.bottom).offset(24)
-            make.centerX.equalToSuperview()
-        }
 
         // 操作按钮加载指示器
-        actionLoadingIndicator = NSProgressIndicator()
         actionLoadingIndicator.style = .spinning
         actionLoadingIndicator.controlSize = .small
         actionLoadingIndicator.isIndeterminate = true
         actionLoadingIndicator.isHidden = true
         actionLoadingIndicator.appearance = NSAppearance(named: .darkAqua)
         actionButton.addSubview(actionLoadingIndicator)
-        actionLoadingIndicator.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
     }
 
     private func setupSubtitleLabel() {
-        subtitleLabel = NSTextField(labelWithString: "")
         subtitleLabel.font = NSFont.systemFont(ofSize: 14)
         subtitleLabel.textColor = Colors.hint
         subtitleLabel.alignment = .center
         subtitleLabel.lineBreakMode = .byWordWrapping
         subtitleLabel.maximumNumberOfLines = 2
         contentContainer.addSubview(subtitleLabel)
-        subtitleLabel.snp.makeConstraints { make in
-            make.top.equalTo(actionButton.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
     }
 
     private func setupRefreshButton() {
-        refreshButton = PaddedButton(horizontalPadding: 10, verticalPadding: 6)
         refreshButton.wantsLayer = true
         refreshButton.isBordered = false
         refreshButton.layer?.cornerRadius = 6
@@ -228,28 +177,19 @@ final class DeviceStatusView: NSView {
         refreshButton.action = #selector(refreshTapped)
         updateRefreshButtonTitle()
         contentContainer.addSubview(refreshButton)
-        refreshButton.snp.makeConstraints { make in
-            make.top.equalTo(subtitleLabel.snp.bottom).offset(24)
-            make.centerX.equalToSuperview()
-            make.bottom.equalToSuperview()
-        }
 
         // 刷新加载指示器
-        refreshLoadingIndicator = NSProgressIndicator()
         refreshLoadingIndicator.style = .spinning
         refreshLoadingIndicator.controlSize = .small
         refreshLoadingIndicator.isIndeterminate = true
         refreshLoadingIndicator.isHidden = true
         refreshLoadingIndicator.appearance = NSAppearance(named: .darkAqua)
         refreshButton.addSubview(refreshLoadingIndicator)
-        refreshLoadingIndicator.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
     }
 
     private func setupStatusGesture() {
         let tapGesture = NSClickGestureRecognizer(target: self, action: #selector(statusAreaTapped))
-        statusStackView.addGestureRecognizer(tapGesture)
+        statusContainer.addGestureRecognizer(tapGesture)
     }
 
     // MARK: - 公开方法
@@ -262,7 +202,7 @@ final class DeviceStatusView: NSView {
         titleLabel.stringValue = title
         titleLabel.textColor = Colors.titleSecondary
 
-        statusStackView.isHidden = true
+        statusContainer.isHidden = true
         actionButton.isHidden = true
         subtitleLabel.isHidden = true
         refreshButton.isHidden = true
@@ -280,7 +220,7 @@ final class DeviceStatusView: NSView {
 
         statusIndicator.isHidden = true
         statusLabel.stringValue = ""
-        statusStackView.isHidden = true
+        statusContainer.isHidden = true
 
         actionButton.isHidden = true
 
@@ -308,7 +248,7 @@ final class DeviceStatusView: NSView {
         titleLabel.stringValue = deviceName
         titleLabel.textColor = Colors.title
 
-        statusStackView.isHidden = false
+        statusContainer.isHidden = false
         statusIndicator.isHidden = false
         statusIndicator.layer?.backgroundColor = statusColor.cgColor
         statusLabel.stringValue = hasWarning ? "⚠️ \(statusText)" : statusText
@@ -336,7 +276,7 @@ final class DeviceStatusView: NSView {
         titleLabel.stringValue = L10n.overlayUI.toolNotInstalled(toolName)
         titleLabel.textColor = .systemOrange
 
-        statusStackView.isHidden = false
+        statusContainer.isHidden = false
         statusIndicator.isHidden = false
         statusIndicator.layer?.backgroundColor = NSColor.systemOrange.cgColor
         statusLabel.stringValue = L10n.overlayUI.needInstall(toolName)
@@ -444,14 +384,13 @@ final class DeviceStatusView: NSView {
 
     override func layout() {
         super.layout()
-        updateFontsForWidth()
+        layoutContent()
     }
 
     // MARK: - 字体自适应
 
     /// 根据可用宽度更新字体大小
-    private func updateFontsForWidth() {
-        let availableWidth = contentContainer.bounds.width
+    private func updateFontsForWidth(_ availableWidth: CGFloat) {
         guard availableWidth > 0 else { return }
 
         // 更新标题标签字体
@@ -473,10 +412,94 @@ final class DeviceStatusView: NSView {
         subtitleLabel.font = subtitleFont
     }
 
+    private func layoutContent() {
+        let availableWidth = max(0, bounds.width - 40)
+        updateFontsForWidth(availableWidth)
+
+        let loadingSize = CGSize(width: 32, height: 32)
+        let titleSize = labelSize(titleLabel, maxWidth: availableWidth)
+        let statusLabelSize = statusLabel.intrinsicContentSize
+        let statusContainerWidth = 10 + 8 + statusLabelSize.width
+        let statusContainerHeight = max(10, statusLabelSize.height)
+        let actionSize = actionButton.intrinsicContentSize
+        let subtitleSize = labelSize(subtitleLabel, maxWidth: availableWidth)
+        let refreshSize = refreshButton.intrinsicContentSize
+
+        let elements: [(NSView, CGFloat, CGSize)] = [
+            (loadingIndicator, 0, loadingSize),
+            (titleLabel, 24, titleSize),
+            (statusContainer, 20, CGSize(width: statusContainerWidth, height: statusContainerHeight)),
+            (actionButton, 24, actionSize),
+            (subtitleLabel, 24, subtitleSize),
+            (refreshButton, 24, refreshSize),
+        ]
+
+        var totalHeight: CGFloat = 0
+        var maxWidth: CGFloat = 0
+        var visibleElements: [(NSView, CGFloat, CGSize)] = []
+
+        for (view, spacing, size) in elements where !view.isHidden {
+            let spacingToApply = visibleElements.isEmpty ? 0 : spacing
+            totalHeight += spacingToApply + size.height
+            maxWidth = max(maxWidth, size.width)
+            visibleElements.append((view, spacingToApply, size))
+        }
+
+        let contentWidth = min(availableWidth, maxWidth)
+        contentContainer.frame = CGRect(
+            x: (bounds.width - contentWidth) / 2,
+            y: (bounds.height - totalHeight) / 2,
+            width: contentWidth,
+            height: totalHeight
+        )
+
+        // 从顶部开始向下布局（macOS 默认坐标系原点在左下角）
+        var y: CGFloat = totalHeight
+        for (view, spacing, size) in visibleElements {
+            y -= spacing  // 先减去与前一个元素的间距
+            y -= size.height
+            view.frame = CGRect(
+                x: (contentWidth - size.width) / 2,
+                y: y,
+                width: size.width,
+                height: size.height
+            )
+        }
+
+        statusIndicator.frame = CGRect(x: 0, y: (statusContainerHeight - 10) / 2, width: 10, height: 10)
+        statusLabel.frame = CGRect(
+            x: 10 + 8,
+            y: (statusContainerHeight - statusLabelSize.height) / 2,
+            width: statusLabelSize.width,
+            height: statusLabelSize.height
+        )
+
+        actionLoadingIndicator.frame = CGRect(
+            x: (actionSize.width - 16) / 2,
+            y: (actionSize.height - 16) / 2,
+            width: 16,
+            height: 16
+        )
+        refreshLoadingIndicator.frame = CGRect(
+            x: (refreshSize.width - 16) / 2,
+            y: (refreshSize.height - 16) / 2,
+            width: 16,
+            height: 16
+        )
+    }
+
+    private func labelSize(_ label: NSTextField, maxWidth: CGFloat) -> CGSize {
+        guard maxWidth > 0 else { return .zero }
+        let bounds = NSRect(x: 0, y: 0, width: maxWidth, height: .greatestFiniteMagnitude)
+        if let size = label.cell?.cellSize(forBounds: bounds) {
+            return CGSize(width: min(maxWidth, size.width), height: size.height)
+        }
+        let size = label.intrinsicContentSize
+        return CGSize(width: min(maxWidth, size.width), height: size.height)
+    }
 }
 
 extension String {
-    
     /// 计算适合可用宽度的字体大小
     func calculateFittingFont(
         baseSize: CGFloat,
@@ -484,7 +507,7 @@ extension String {
         weight: NSFont.Weight,
         availableWidth: CGFloat
     ) -> NSFont {
-        guard !self.isEmpty else {
+        guard !isEmpty else {
             return NSFont.systemFont(ofSize: baseSize, weight: weight)
         }
 

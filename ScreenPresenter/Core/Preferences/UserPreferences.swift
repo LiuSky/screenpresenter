@@ -49,7 +49,6 @@ final class UserPreferences {
         static let scrcpyBitrate = "scrcpyBitrate"
         static let scrcpyMaxSize = "scrcpyMaxSize"
         static let scrcpyShowTouches = "scrcpyShowTouches"
-        static let useBundledAdb = "useBundledAdb"
         static let scrcpyPort = "scrcpyPort"
         static let scrcpyCodec = "scrcpyCodec"
         // 自定义路径
@@ -220,19 +219,6 @@ final class UserPreferences {
         set { defaults.set(newValue, forKey: Keys.scrcpyShowTouches) }
     }
 
-    // MARK: - Debug Settings
-
-    /// 是否使用内置 adb（默认 true）
-    var useBundledAdb: Bool {
-        get {
-            if defaults.object(forKey: Keys.useBundledAdb) == nil {
-                return true
-            }
-            return defaults.bool(forKey: Keys.useBundledAdb)
-        }
-        set { defaults.set(newValue, forKey: Keys.useBundledAdb) }
-    }
-
     /// scrcpy 连接端口（默认 27183）
     var scrcpyPort: Int {
         get {
@@ -312,7 +298,6 @@ final class UserPreferences {
             Keys.scrcpyBitrate: 8,
             Keys.scrcpyMaxSize: 0,
             Keys.scrcpyShowTouches: false,
-            Keys.useBundledAdb: true,
             Keys.scrcpyPort: 27183,
             Keys.scrcpyCodec: ScrcpyCodecType.h264.rawValue,
         ])

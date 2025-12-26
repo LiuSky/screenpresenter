@@ -9,7 +9,6 @@
 //
 
 import AppKit
-import SnapKit
 
 // MARK: - 设备边框视图
 
@@ -32,9 +31,9 @@ final class DeviceBezelView: NSView {
     // MARK: - UI 组件（使用嵌套 CALayer 实现连续曲率圆角）
 
     /// 金属外壳边框图层（最外层，使用 continuous 圆角）
-    private var metalFrameLayer: CALayer!
+    private let metalFrameLayer = CALayer()
     /// 屏幕黑色边框图层（中间层，使用 continuous 圆角）
-    private var screenBezelLayer: CALayer!
+    private let screenBezelLayer = CALayer()
     /// 顶部特征层（刘海/灵动岛/摄像头开孔）
     private var featureLayer: CAShapeLayer?
     /// Home 按钮层
@@ -42,10 +41,10 @@ final class DeviceBezelView: NSView {
     /// 侧边按钮层
     private var sideButtonLayers: [CALayer] = []
 
-    private(set) var screenContentView: NSView!
+    private(set) var screenContentView = NSView()
 
     /// 顶部特征覆盖视图（在 screenContentView 之上，用于显示刘海/灵动岛等）
-    private var featureOverlayView: NSView!
+    private let featureOverlayView = FeatureOverlayView()
 
     // MARK: - 初始化
 
@@ -121,19 +120,16 @@ final class DeviceBezelView: NSView {
         // 结构：metalFrameLayer > screenBezelLayer > screenContentView
 
         // 1. 金属外壳边框（最外层）
-        metalFrameLayer = CALayer()
         metalFrameLayer.masksToBounds = true
         metalFrameLayer.cornerCurve = .continuous
         layer?.addSublayer(metalFrameLayer)
 
         // 2. 屏幕黑色边框（中间层，嵌套在金属边框内）
-        screenBezelLayer = CALayer()
         screenBezelLayer.masksToBounds = true
         screenBezelLayer.cornerCurve = .continuous
         metalFrameLayer.addSublayer(screenBezelLayer)
 
         // 3. 屏幕内容区域（最内层）
-        screenContentView = NSView()
         screenContentView.wantsLayer = true
         screenContentView.layer?.backgroundColor = NSColor.clear.cgColor
         screenContentView.layer?.masksToBounds = true
@@ -142,7 +138,6 @@ final class DeviceBezelView: NSView {
 
         // 4. 顶部特征覆盖视图（在 screenContentView 之上）
         // 使用独立的 view 确保顶部特征始终在屏幕内容之上
-        featureOverlayView = FeatureOverlayView()
         featureOverlayView.wantsLayer = true
         featureOverlayView.layer?.backgroundColor = NSColor.clear.cgColor
         addSubview(featureOverlayView)

@@ -802,9 +802,15 @@ enum VideoFormatDescriptionFactory {
 
         let status = sps.withUnsafeBytes { spsBuffer in
             pps.withUnsafeBytes { ppsBuffer in
+                guard
+                    let spsBase = spsBuffer.baseAddress,
+                    let ppsBase = ppsBuffer.baseAddress
+                else {
+                    return OSStatus(-1)
+                }
                 let parameterSetPointers: [UnsafePointer<UInt8>] = [
-                    spsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    ppsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    spsBase.assumingMemoryBound(to: UInt8.self),
+                    ppsBase.assumingMemoryBound(to: UInt8.self),
                 ]
                 let parameterSetSizes: [Int] = [sps.count, pps.count]
 
@@ -840,10 +846,17 @@ enum VideoFormatDescriptionFactory {
         let status = vps.withUnsafeBytes { vpsBuffer in
             sps.withUnsafeBytes { spsBuffer in
                 pps.withUnsafeBytes { ppsBuffer in
+                    guard
+                        let vpsBase = vpsBuffer.baseAddress,
+                        let spsBase = spsBuffer.baseAddress,
+                        let ppsBase = ppsBuffer.baseAddress
+                    else {
+                        return OSStatus(-1)
+                    }
                     let parameterSetPointers: [UnsafePointer<UInt8>] = [
-                        vpsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                        spsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                        ppsBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                        vpsBase.assumingMemoryBound(to: UInt8.self),
+                        spsBase.assumingMemoryBound(to: UInt8.self),
+                        ppsBase.assumingMemoryBound(to: UInt8.self),
                     ]
                     let parameterSetSizes: [Int] = [vps.count, sps.count, pps.count]
 

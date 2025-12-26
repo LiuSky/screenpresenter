@@ -14,7 +14,6 @@
 
 import AppKit
 import AVFoundation
-import SnapKit
 
 // MARK: - 偏好设置窗口控制器
 
@@ -69,15 +68,544 @@ private class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
+private final class FlexibleSpacerView: NSView {
+    var minLength: CGFloat = 0
+}
+
+private final class FixedSizeTextField: NSTextField {
+    var preferredWidth: CGFloat = 0
+
+    override var intrinsicContentSize: NSSize {
+        let size = super.intrinsicContentSize
+        guard preferredWidth > 0 else { return size }
+        return NSSize(width: preferredWidth, height: size.height)
+    }
+}
+
+private enum LayoutMetrics {
+    static let rowMinHeight: CGFloat = 40
+    static let rowVerticalPadding: CGFloat = 8
+}
+
+private final class PaddingView: NSView {
+    private let contentView: NSView
+    private let insets: NSEdgeInsets
+
+    init(contentView: NSView, insets: NSEdgeInsets) {
+        self.contentView = contentView
+        self.insets = insets
+        super.init(frame: .zero)
+        addSubview(contentView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var isFlipped: Bool { true }
+
+    func requiredSize(for width: CGFloat) -> CGSize {
+        let contentWidth = max(0, width - insets.left - insets.right)
+        let contentSize = sizeForView(contentView, maxWidth: contentWidth)
+        let totalWidth = width > 0 ? width : contentSize.width + insets.left + insets.right
+        return CGSize(
+            width: totalWidth,
+            height: contentSize.height + insets.top + insets.bottom
+        )
+    }
+
+    override func layout() {
+        super.layout()
+        let contentWidth = max(0, bounds.width - insets.left - insets.right)
+        let contentHeight = max(0, bounds.height - insets.top - insets.bottom)
+        contentView.frame = CGRect(
+            x: insets.left,
+            y: insets.top,
+            width: contentWidth,
+            height: contentHeight
+        )
+        contentView.needsLayout = true
+        contentView.layoutSubtreeIfNeeded()
+    }
+
+    private func sizeForView(_ view: NSView, maxWidth: CGFloat) -> CGSize {
+        if let labeledRow = view as? LabeledRowView {
+            return labeledRow.requiredSize(for: maxWidth)
+        }
+        if let stackView = view as? StackContainerView {
+            let size = stackView.requiredSize(for: maxWidth)
+            let width = stackView.fillsCrossAxis ? maxWidth : size.width
+            return CGSize(width: width, height: size.height)
+        }
+        if let textField = view as? NSTextField {
+            let bounds = NSRect(x: 0, y: 0, width: maxWidth, height: .greatestFiniteMagnitude)
+            if let size = textField.cell?.cellSize(forBounds: bounds) {
+                // 添加少量余量，避免文本被裁剪
+                let paddedWidth = min(maxWidth, ceil(size.width) + 2)
+                return CGSize(width: paddedWidth, height: size.height)
+            }
+        }
+        let intrinsic = view.intrinsicContentSize
+        if intrinsic.width > 0, intrinsic.height > 0 {
+            return CGSize(width: min(maxWidth, intrinsic.width), height: intrinsic.height)
+        }
+        let fitting = view.fittingSize
+        return CGSize(width: min(maxWidth, fitting.width), height: fitting.height)
+    }
+}
+
+private final class StackContainerView: NSView {
+    enum Axis {
+        case vertical
+        case horizontal
+    }
+
+    enum Alignment {
+        case leading
+        case center
+        case trailing
+        case top
+        case centerY
+        case bottom
+    }
+
+    var axis: Axis = .vertical
+    var alignment: Alignment = .leading
+    var spacing: CGFloat = 0
+    var edgeInsets: NSEdgeInsets = .init(top: 0, left: 0, bottom: 0, right: 0)
+    var fillsCrossAxis: Bool = false
+    private(set) var arrangedSubviews: [NSView] = []
+    private var flexibleViews: Set<ObjectIdentifier> = []
+
+    override var isFlipped: Bool { true }
+
+    func addArrangedSubview(_ view: NSView) {
+        arrangedSubviews.append(view)
+        addSubview(view)
+        needsLayout = true
+    }
+
+    func setFlexible(_ view: NSView, isFlexible: Bool) {
+        let identifier = ObjectIdentifier(view)
+        if isFlexible {
+            flexibleViews.insert(identifier)
+        } else {
+            flexibleViews.remove(identifier)
+        }
+        needsLayout = true
+    }
+
+    func requiredSize(for width: CGFloat) -> CGSize {
+        let availableWidth = max(0, width - edgeInsets.left - edgeInsets.right)
+        switch axis {
+        case .vertical:
+            var totalHeight: CGFloat = edgeInsets.top + edgeInsets.bottom
+            var maxWidth: CGFloat = 0
+            var visibleCount = 0
+            for view in arrangedSubviews where !view.isHidden {
+                let size = sizeForView(view, maxWidth: availableWidth)
+                totalHeight += size.height
+                maxWidth = max(maxWidth, size.width)
+                visibleCount += 1
+            }
+            if visibleCount > 1 {
+                totalHeight += spacing * CGFloat(visibleCount - 1)
+            }
+            return CGSize(width: maxWidth + edgeInsets.left + edgeInsets.right, height: totalHeight)
+        case .horizontal:
+            var totalWidth: CGFloat = edgeInsets.left + edgeInsets.right
+            var maxHeight: CGFloat = 0
+            var visibleCount = 0
+            for view in arrangedSubviews where !view.isHidden {
+                let size = sizeForView(view, maxWidth: availableWidth)
+                totalWidth += size.width
+                maxHeight = max(maxHeight, size.height)
+                visibleCount += 1
+            }
+            if visibleCount > 1 {
+                totalWidth += spacing * CGFloat(visibleCount - 1)
+            }
+            return CGSize(width: totalWidth, height: maxHeight + edgeInsets.top + edgeInsets.bottom)
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        layoutArrangedSubviews()
+    }
+
+    private func layoutArrangedSubviews() {
+        let availableWidth = max(0, bounds.width - edgeInsets.left - edgeInsets.right)
+        let availableHeight = max(0, bounds.height - edgeInsets.top - edgeInsets.bottom)
+
+        switch axis {
+        case .vertical:
+            var y = edgeInsets.top
+            let visible = arrangedSubviews.filter { !$0.isHidden }
+            for (index, view) in visible.enumerated() {
+                let size = sizeForView(view, maxWidth: availableWidth)
+                let x = alignedX(for: size.width, availableWidth: availableWidth)
+                view.frame = CGRect(
+                    x: edgeInsets.left + x,
+                    y: y,
+                    width: size.width,
+                    height: size.height
+                )
+                view.needsLayout = true
+                view.layoutSubtreeIfNeeded()
+                y += size.height
+                if index < visible.count - 1 {
+                    y += spacing
+                }
+            }
+        case .horizontal:
+            let visible = arrangedSubviews.filter { !$0.isHidden }
+            var sizes: [CGSize] = []
+            var totalPreferredWidth: CGFloat = 0
+            var totalPreferredHeight: CGFloat = 0
+            var shrinkableIndices: [Int] = []
+            var spacerIndices: [Int] = []
+
+            for (index, view) in visible.enumerated() {
+                let size = sizeForView(view, maxWidth: availableWidth)
+                sizes.append(size)
+                totalPreferredWidth += size.width
+                totalPreferredHeight = max(totalPreferredHeight, size.height)
+
+                if view is FlexibleSpacerView {
+                    spacerIndices.append(index)
+                } else if flexibleViews.contains(ObjectIdentifier(view)) {
+                    shrinkableIndices.append(index)
+                }
+            }
+
+            let totalSpacing = spacing * CGFloat(max(0, visible.count - 1))
+            let totalWidthWithSpacing = totalPreferredWidth + totalSpacing
+
+            if totalWidthWithSpacing > availableWidth, !shrinkableIndices.isEmpty {
+                let overflow = totalWidthWithSpacing - availableWidth
+                let shrinkableWidth = shrinkableIndices.reduce(CGFloat(0)) { $0 + sizes[$1].width }
+                let shrinkRatio = shrinkableWidth > 0 ? max(0, (shrinkableWidth - overflow) / shrinkableWidth) : 0
+                for index in shrinkableIndices {
+                    sizes[index].width = max(0, sizes[index].width * shrinkRatio)
+                }
+            }
+
+            var adjustedWidth: CGFloat = sizes.reduce(0) { $0 + $1.width } + totalSpacing
+            if adjustedWidth < availableWidth, !spacerIndices.isEmpty {
+                let remaining = availableWidth - adjustedWidth
+                let extraPerSpacer = remaining / CGFloat(spacerIndices.count)
+                for index in spacerIndices {
+                    sizes[index].width = max(
+                        (visible[index] as? FlexibleSpacerView)?.minLength ?? 0,
+                        sizes[index].width + extraPerSpacer
+                    )
+                }
+                adjustedWidth = sizes.reduce(0) { $0 + $1.width } + totalSpacing
+            }
+
+            if adjustedWidth < availableWidth, spacerIndices.isEmpty, !shrinkableIndices.isEmpty {
+                let remaining = availableWidth - adjustedWidth
+                let extraPerFlexible = remaining / CGFloat(shrinkableIndices.count)
+                for index in shrinkableIndices {
+                    sizes[index].width = max(0, sizes[index].width + extraPerFlexible)
+                }
+                adjustedWidth = sizes.reduce(0) { $0 + $1.width } + totalSpacing
+            }
+
+            var x = edgeInsets.left
+            for (index, view) in visible.enumerated() {
+                let size = sizes[index]
+                let y = alignedY(for: size.height, availableHeight: availableHeight)
+                view.frame = CGRect(
+                    x: x,
+                    y: edgeInsets.top + y,
+                    width: size.width,
+                    height: size.height
+                )
+                view.needsLayout = true
+                view.layoutSubtreeIfNeeded()
+                x += size.width
+                if index < visible.count - 1 {
+                    x += spacing
+                }
+            }
+        }
+    }
+
+    private func alignedX(for width: CGFloat, availableWidth: CGFloat) -> CGFloat {
+        switch alignment {
+        case .leading, .top, .centerY, .bottom:
+            0
+        case .center:
+            max(0, (availableWidth - width) / 2)
+        case .trailing:
+            max(0, availableWidth - width)
+        }
+    }
+
+    private func alignedY(for height: CGFloat, availableHeight: CGFloat) -> CGFloat {
+        switch alignment {
+        case .top:
+            0
+        case .centerY, .center:
+            max(0, (availableHeight - height) / 2)
+        case .bottom:
+            max(0, availableHeight - height)
+        case .leading, .trailing:
+            0
+        }
+    }
+
+    private func sizeForView(_ view: NSView, maxWidth: CGFloat) -> CGSize {
+        if let labeledRow = view as? LabeledRowView {
+            return labeledRow.requiredSize(for: maxWidth)
+        }
+        if let paddingView = view as? PaddingView {
+            return paddingView.requiredSize(for: maxWidth)
+        }
+        if let box = view as? NSBox, box.boxType == .separator {
+            let height = max(1, box.frame.height)
+            return CGSize(width: maxWidth, height: height)
+        }
+        if let textField = view as? FixedSizeTextField, textField.preferredWidth > 0 {
+            let height = max(0, textField.intrinsicContentSize.height)
+            return CGSize(width: min(maxWidth, textField.preferredWidth), height: height)
+        }
+        if let slider = view as? NSSlider, view.frame.width > 0 {
+            return CGSize(width: min(maxWidth, view.frame.width), height: max(0, view.frame.height))
+        }
+        if let imageView = view as? NSImageView {
+            let imageSize = imageView.image?.size ?? .zero
+            let width = max(imageView.frame.width, imageSize.width)
+            let height = max(imageView.frame.height, imageSize.height)
+            if width > 0 || height > 0 {
+                return CGSize(width: min(maxWidth, max(0, width)), height: max(0, height))
+            }
+        }
+        if let stackView = view as? StackContainerView {
+            let baseWidth = view.frame.width > 0 ? min(view.frame.width, maxWidth) : maxWidth
+            let size = stackView.requiredSize(for: baseWidth)
+            let finalWidth: CGFloat = if stackView.fillsCrossAxis {
+                maxWidth
+            } else if view.frame.width > 0 {
+                baseWidth
+            } else {
+                size.width
+            }
+            return CGSize(width: finalWidth, height: size.height)
+        }
+        // NSTextField 必须在 NSControl 之前检查，因为 NSTextField 继承自 NSControl
+        if let textField = view as? NSTextField {
+            let bounds = NSRect(x: 0, y: 0, width: maxWidth, height: .greatestFiniteMagnitude)
+            if let size = textField.cell?.cellSize(forBounds: bounds) {
+                // 添加少量余量，避免文本被裁剪
+                let paddedWidth = min(maxWidth, ceil(size.width) + 2)
+                return CGSize(width: paddedWidth, height: size.height)
+            }
+        }
+        // NSButton 需要在通用 NSControl 之前检查，添加余量确保按钮文字不被裁剪
+        if let button = view as? NSButton {
+            var size = button.intrinsicContentSize
+            if size.width <= 0 || size.height <= 0 {
+                button.sizeToFit()
+                size = button.frame.size
+            }
+            if size.width <= 0 || size.height <= 0 {
+                size = button.fittingSize
+            }
+            // 添加少量余量，避免按钮文字被裁剪
+            let paddedWidth = min(maxWidth, ceil(size.width) + 4)
+            return CGSize(width: paddedWidth, height: max(0, size.height))
+        }
+        if let control = view as? NSControl {
+            var size = control.intrinsicContentSize
+            if size.width <= 0 || size.height <= 0 {
+                control.sizeToFit()
+                size = control.frame.size
+            }
+            if size.width <= 0 || size.height <= 0 {
+                size = control.fittingSize
+            }
+            let width = min(maxWidth, max(0, size.width))
+            let height = max(0, size.height)
+            return CGSize(width: width, height: height)
+        }
+        let intrinsic = view.intrinsicContentSize
+        if intrinsic.width > 0, intrinsic.height > 0 {
+            return CGSize(width: min(maxWidth, intrinsic.width), height: intrinsic.height)
+        }
+        let fitting = view.fittingSize
+        if fitting.width > 0 || fitting.height > 0 {
+            return CGSize(width: min(maxWidth, fitting.width), height: fitting.height)
+        }
+        return CGSize(width: min(maxWidth, view.frame.width), height: view.frame.height)
+    }
+}
+
+private final class LabeledRowView: NSView {
+    private let labelView: NSView
+    private let controlView: NSView
+    private let spacing: CGFloat = 12
+    private let minRowHeight: CGFloat = LayoutMetrics.rowMinHeight
+    private let verticalPadding: CGFloat = LayoutMetrics.rowVerticalPadding
+
+    /// 使用 NSTextField 作为标签
+    init(label: NSTextField, control: NSView) {
+        labelView = label
+        controlView = control
+        super.init(frame: .zero)
+        addSubview(labelView)
+        addSubview(controlView)
+    }
+
+    /// 使用任意视图作为标签（用于复杂的左侧布局，如权限行）
+    init(labelView: NSView, control: NSView) {
+        self.labelView = labelView
+        controlView = control
+        super.init(frame: .zero)
+        addSubview(labelView)
+        addSubview(controlView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var isFlipped: Bool { true }
+
+    func requiredSize(for width: CGFloat) -> CGSize {
+        let availableWidth = max(0, width)
+        let controlSize = sizeForView(controlView, maxWidth: .greatestFiniteMagnitude)
+        let labelMaxWidth = max(0, availableWidth - controlSize.width - spacing)
+        let labelSize = labelSizeForWidth(labelMaxWidth)
+        let contentHeight = max(labelSize.height, controlSize.height)
+        let height = max(minRowHeight, contentHeight + verticalPadding * 2)
+        return CGSize(width: availableWidth, height: height)
+    }
+
+    override func layout() {
+        super.layout()
+        let availableWidth = bounds.width
+        let controlSize = sizeForView(controlView, maxWidth: .greatestFiniteMagnitude)
+        let labelWidth = max(0, availableWidth - controlSize.width - spacing)
+        let labelSize = labelSizeForWidth(labelWidth)
+        let contentHeight = max(0, bounds.height - verticalPadding * 2)
+        let labelY = verticalPadding + max(0, (contentHeight - labelSize.height) / 2)
+        let controlY = verticalPadding + max(0, (contentHeight - controlSize.height) / 2)
+
+        labelView.frame = CGRect(x: 0, y: labelY, width: labelWidth, height: labelSize.height)
+        let controlX = max(0, availableWidth - controlSize.width)
+        controlView.frame = CGRect(
+            x: controlX,
+            y: controlY,
+            width: controlSize.width,
+            height: controlSize.height
+        )
+        labelView.needsLayout = true
+        labelView.layoutSubtreeIfNeeded()
+        controlView.needsLayout = true
+        controlView.layoutSubtreeIfNeeded()
+    }
+
+    private func labelSizeForWidth(_ width: CGFloat) -> CGSize {
+        guard width > 0 else { return .zero }
+        // 处理 StackContainerView
+        if let stackView = labelView as? StackContainerView {
+            return stackView.requiredSize(for: width)
+        }
+        // 处理 NSTextField
+        if let textField = labelView as? NSTextField {
+            let bounds = NSRect(x: 0, y: 0, width: width, height: .greatestFiniteMagnitude)
+            if let size = textField.cell?.cellSize(forBounds: bounds) {
+                return CGSize(width: min(width, size.width), height: size.height)
+            }
+            let size = textField.intrinsicContentSize
+            return CGSize(width: min(width, size.width), height: size.height)
+        }
+        // 通用处理
+        let intrinsic = labelView.intrinsicContentSize
+        if intrinsic.width > 0, intrinsic.height > 0 {
+            return CGSize(width: min(width, intrinsic.width), height: intrinsic.height)
+        }
+        let fitting = labelView.fittingSize
+        return CGSize(width: min(width, fitting.width), height: fitting.height)
+    }
+
+    private func sizeForView(_ view: NSView, maxWidth: CGFloat) -> CGSize {
+        if let stackView = view as? StackContainerView {
+            return stackView.requiredSize(for: maxWidth)
+        }
+        if let textField = view as? FixedSizeTextField, textField.preferredWidth > 0 {
+            let height = max(0, textField.intrinsicContentSize.height)
+            return CGSize(width: min(maxWidth, textField.preferredWidth), height: height)
+        }
+        if let slider = view as? NSSlider, view.frame.width > 0 {
+            return CGSize(width: min(maxWidth, view.frame.width), height: max(0, view.frame.height))
+        }
+        if let imageView = view as? NSImageView {
+            let imageSize = imageView.image?.size ?? .zero
+            let width = max(imageView.frame.width, imageSize.width)
+            let height = max(imageView.frame.height, imageSize.height)
+            if width > 0 || height > 0 {
+                return CGSize(width: min(maxWidth, max(0, width)), height: max(0, height))
+            }
+        }
+        if let textField = view as? NSTextField {
+            let bounds = NSRect(x: 0, y: 0, width: maxWidth, height: .greatestFiniteMagnitude)
+            if let size = textField.cell?.cellSize(forBounds: bounds) {
+                // 添加少量余量，避免文本被裁剪
+                let paddedWidth = min(maxWidth, ceil(size.width) + 2)
+                return CGSize(width: paddedWidth, height: size.height)
+            }
+        }
+        // NSButton 需要在通用 NSControl 之前检查，添加余量确保按钮文字不被裁剪
+        if let button = view as? NSButton {
+            var size = button.intrinsicContentSize
+            if size.width <= 0 || size.height <= 0 {
+                button.sizeToFit()
+                size = button.frame.size
+            }
+            if size.width <= 0 || size.height <= 0 {
+                size = button.fittingSize
+            }
+            // 添加少量余量，避免按钮文字被裁剪
+            let paddedWidth = min(maxWidth, ceil(size.width) + 4)
+            return CGSize(width: paddedWidth, height: max(0, size.height))
+        }
+        if let control = view as? NSControl {
+            var size = control.intrinsicContentSize
+            if size.width <= 0 || size.height <= 0 {
+                control.sizeToFit()
+                size = control.frame.size
+            }
+            if size.width <= 0 || size.height <= 0 {
+                size = control.fittingSize
+            }
+            return CGSize(width: min(maxWidth, max(0, size.width)), height: max(0, size.height))
+        }
+        let intrinsic = view.intrinsicContentSize
+        if intrinsic.width > 0, intrinsic.height > 0 {
+            return CGSize(width: min(maxWidth, intrinsic.width), height: intrinsic.height)
+        }
+        let fitting = view.fittingSize
+        return CGSize(width: min(maxWidth, fitting.width), height: fitting.height)
+    }
+}
+
 // MARK: - 偏好设置视图控制器
 
 final class PreferencesViewController: NSViewController {
     // MARK: - UI 组件
 
-    private var segmentedControl: NSSegmentedControl!
-    private var contentContainer: NSView!
+    private let segmentedControl = NSSegmentedControl()
+    private let contentContainer = NSView()
     private var tabViews: [NSView] = []
     private var currentTabIndex: Int = 0
+    private var scrollViewLayouts: [(NSScrollView, StackContainerView)] = []
+    private let valueLabelFont = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
 
     // MARK: - 生命周期
 
@@ -89,6 +617,13 @@ final class PreferencesViewController: NSViewController {
         super.viewDidLoad()
         setupUI()
         setupLanguageObserver()
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        layoutRootViews()
+        layoutCurrentTab()
+        updateScrollViewLayouts()
     }
 
     deinit {
@@ -127,34 +662,27 @@ final class PreferencesViewController: NSViewController {
 
     private func setupUI() {
         // 创建分段控件
-        segmentedControl = NSSegmentedControl(
-            labels: [
-                L10n.prefs.tab.general,
-                L10n.prefs.tab.capture,
-                L10n.prefs.tab.scrcpy,
-                L10n.prefs.tab.permissions,
-            ],
-            trackingMode: .selectOne,
-            target: self,
-            action: #selector(tabChanged(_:))
-        )
+        let labels = [
+            L10n.prefs.tab.general,
+            L10n.prefs.tab.capture,
+            L10n.prefs.tab.scrcpy,
+            L10n.prefs.tab.permissions,
+        ]
+        segmentedControl.segmentCount = labels.count
+        for (index, label) in labels.enumerated() {
+            segmentedControl.setLabel(label, forSegment: index)
+        }
+        segmentedControl.trackingMode = .selectOne
+        segmentedControl.target = self
+        segmentedControl.action = #selector(tabChanged(_:))
         segmentedControl.selectedSegment = 0
         segmentedControl.segmentStyle = .automatic
         segmentedControl.focusRingType = .none
         view.addSubview(segmentedControl)
-        segmentedControl.snp.makeConstraints { make in
-            // 顶部留出 titlebar + toolbar 区域（约 52pt）
-            make.top.equalToSuperview().offset(52)
-            make.centerX.equalToSuperview()
-        }
 
         // 创建内容容器
-        contentContainer = NSView()
         view.addSubview(contentContainer)
-        contentContainer.snp.makeConstraints { make in
-            make.top.equalTo(segmentedControl.snp.bottom).offset(16)
-            make.leading.trailing.bottom.equalToSuperview()
-        }
+        layoutRootViews()
 
         // 创建各个 tab 的视图
         tabViews = [
@@ -181,11 +709,40 @@ final class PreferencesViewController: NSViewController {
         // 添加新视图
         let newView = tabViews[index]
         contentContainer.addSubview(newView)
-        newView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
+        newView.frame = contentContainer.bounds
+        newView.autoresizingMask = [.width, .height]
 
         currentTabIndex = index
+        updateScrollViewLayouts()
+    }
+
+    private func layoutRootViews() {
+        let segmentedSize = segmentedControl.intrinsicContentSize
+        let y = view.bounds.height - 52 - segmentedSize.height
+        segmentedControl.frame = CGRect(
+            x: (view.bounds.width - segmentedSize.width) / 2,
+            y: max(0, y),
+            width: segmentedSize.width,
+            height: segmentedSize.height
+        )
+        let contentTop = segmentedControl.frame.minY - 16
+        contentContainer.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: view.bounds.width,
+            height: max(0, contentTop)
+        )
+    }
+
+    private func layoutCurrentTab() {
+        guard currentTabIndex >= 0, currentTabIndex < tabViews.count else { return }
+        let currentView = tabViews[currentTabIndex]
+        currentView.frame = contentContainer.bounds
+    }
+
+    private func preferredValueWidth(_ text: String, font: NSFont) -> CGFloat {
+        let width = (text as NSString).size(withAttributes: [.font: font]).width
+        return ceil(width + 6)
     }
 
     // MARK: - 通用设置
@@ -196,7 +753,7 @@ final class PreferencesViewController: NSViewController {
 
         // 语言设置组
         let languageGroup = createSettingsGroup(title: L10n.prefs.section.language, icon: "globe")
-        languageGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.general.language) {
+        addGroupRow(languageGroup, createLabeledRow(label: L10n.prefs.general.language) {
             let popup = NSPopUpButton()
             for language in AppLanguage.allCases {
                 popup.addItem(withTitle: language.nativeName)
@@ -211,9 +768,10 @@ final class PreferencesViewController: NSViewController {
 
         // 外观设置组
         let appearanceGroup = createSettingsGroup(title: L10n.prefs.section.appearance, icon: "paintbrush")
-        appearanceGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.appearance.backgroundOpacity) {
-            let stack = NSStackView()
-            stack.orientation = .horizontal
+        addGroupRow(appearanceGroup, createLabeledRow(label: L10n.prefs.appearance.backgroundOpacity) {
+            let stack = StackContainerView()
+            stack.axis = .horizontal
+            stack.alignment = .centerY
             stack.spacing = 8
 
             let slider = NSSlider(
@@ -223,31 +781,27 @@ final class PreferencesViewController: NSViewController {
                 target: self,
                 action: #selector(backgroundOpacityChanged(_:))
             )
-            slider.snp.makeConstraints { make in
-                make.width.equalTo(150).priority(.high)
-            }
+            slider.setFrameSize(NSSize(width: 200, height: slider.intrinsicContentSize.height))
             slider.setContentHuggingPriority(.defaultHigh, for: .horizontal)
             stack.addArrangedSubview(slider)
 
-            let valueLabel = NSTextField(labelWithString: String(
+            let valueLabel = FixedSizeTextField(labelWithString: String(
                 format: "%.0f%%",
                 UserPreferences.shared.backgroundOpacity * 100
             ))
             valueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
             valueLabel.tag = 1001 // 用于后续更新
+            valueLabel.preferredWidth = 40
             stack.addArrangedSubview(valueLabel)
 
             return stack
         })
 
-        // 显示设备边框开关
-        let showBezelCheckbox = NSButton(
-            checkboxWithTitle: L10n.prefs.appearance.showDeviceBezel,
-            target: self,
+        addGroupRow(appearanceGroup, createCheckboxRow(
+            label: L10n.prefs.appearance.showDeviceBezel,
+            isOn: UserPreferences.shared.showDeviceBezel,
             action: #selector(showDeviceBezelChanged(_:))
-        )
-        showBezelCheckbox.state = UserPreferences.shared.showDeviceBezel ? .on : .off
-        appearanceGroup.addArrangedSubview(showBezelCheckbox)
+        ))
 
         addSettingsGroup(appearanceGroup, to: stackView)
 
@@ -255,7 +809,7 @@ final class PreferencesViewController: NSViewController {
         let layoutGroup = createSettingsGroup(title: L10n.prefs.section.layout, icon: "rectangle.split.2x1")
 
         // 布局模式
-        layoutGroup.addArrangedSubview(createLabeledRow(label: L10n.toolbar.layoutMode) {
+        addGroupRow(layoutGroup, createLabeledRow(label: L10n.toolbar.layoutMode) {
             let segmented = NSSegmentedControl(frame: .zero)
             segmented.segmentCount = PreviewLayoutMode.allCases.count
             segmented.trackingMode = .selectOne
@@ -279,7 +833,7 @@ final class PreferencesViewController: NSViewController {
         })
 
         // 默认设备位置
-        layoutGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.layoutPref.devicePosition) {
+        addGroupRow(layoutGroup, createLabeledRow(label: L10n.prefs.layoutPref.devicePosition) {
             let segmented = NSSegmentedControl(
                 labels: [
                     L10n.prefs.layoutPref.iosOnLeft,
@@ -296,16 +850,15 @@ final class PreferencesViewController: NSViewController {
 
         // 连接设置组
         let connectionGroup = createSettingsGroup(title: L10n.prefs.section.connection, icon: "cable.connector")
-        let autoReconnectCheckbox = NSButton(
-            checkboxWithTitle: L10n.prefs.connectionPref.autoReconnect,
-            target: self,
+        addGroupRow(connectionGroup, createCheckboxRow(
+            label: L10n.prefs.connectionPref.autoReconnect,
+            isOn: UserPreferences.shared.autoReconnect,
             action: #selector(autoReconnectChanged(_:))
-        )
-        autoReconnectCheckbox.state = UserPreferences.shared.autoReconnect ? .on : .off
-        connectionGroup.addArrangedSubview(autoReconnectCheckbox)
-        connectionGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.connectionPref.reconnectDelay) {
-            let stack = NSStackView()
-            stack.orientation = .horizontal
+        ))
+        addGroupRow(connectionGroup, createLabeledRow(label: L10n.prefs.connectionPref.reconnectDelay) {
+            let stack = StackContainerView()
+            stack.axis = .horizontal
+            stack.alignment = .centerY
             stack.spacing = 8
             let stepper = NSStepper()
             stepper.minValue = 1
@@ -315,15 +868,18 @@ final class PreferencesViewController: NSViewController {
             stepper.action = #selector(reconnectDelayChanged(_:))
             stepper.tag = 2001 // 用于查找关联的 label
             stack.addArrangedSubview(stepper)
-            let label = NSTextField(labelWithString: L10n.prefs.connectionPref
+            let label = FixedSizeTextField(labelWithString: L10n.prefs.connectionPref
                 .seconds(Int(UserPreferences.shared.reconnectDelay)))
+            label.font = valueLabelFont
             label.tag = 2001
+            label.preferredWidth = preferredValueWidth(label.stringValue, font: valueLabelFont)
             stack.addArrangedSubview(label)
             return stack
         })
-        connectionGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.connectionPref.maxAttempts) {
-            let stack = NSStackView()
-            stack.orientation = .horizontal
+        addGroupRow(connectionGroup, createLabeledRow(label: L10n.prefs.connectionPref.maxAttempts) {
+            let stack = StackContainerView()
+            stack.axis = .horizontal
+            stack.alignment = .centerY
             stack.spacing = 8
             let stepper = NSStepper()
             stepper.minValue = 1
@@ -333,15 +889,17 @@ final class PreferencesViewController: NSViewController {
             stepper.action = #selector(maxAttemptsChanged(_:))
             stepper.tag = 2002 // 用于查找关联的 label
             stack.addArrangedSubview(stepper)
-            let label = NSTextField(labelWithString: L10n.prefs.connectionPref
+            let label = FixedSizeTextField(labelWithString: L10n.prefs.connectionPref
                 .times(UserPreferences.shared.maxReconnectAttempts))
+            label.font = valueLabelFont
             label.tag = 2002
+            label.preferredWidth = preferredValueWidth(label.stringValue, font: valueLabelFont)
             stack.addArrangedSubview(label)
             return stack
         })
         addSettingsGroup(connectionGroup, to: stackView)
 
-        setupScrollViewConstraints(scrollView: scrollView, contentView: stackView)
+        setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
         return scrollView
     }
 
@@ -353,7 +911,7 @@ final class PreferencesViewController: NSViewController {
 
         // 帧率设置组
         let frameRateGroup = createSettingsGroup(title: L10n.prefs.section.frameRate, icon: "speedometer")
-        frameRateGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.capturePref.frameRate) {
+        addGroupRow(frameRateGroup, createLabeledRow(label: L10n.prefs.capturePref.frameRate) {
             let segmented = NSSegmentedControl(
                 labels: ["30 FPS", "60 FPS", "120 FPS"],
                 trackingMode: .selectOne,
@@ -370,10 +928,19 @@ final class PreferencesViewController: NSViewController {
         let note = NSTextField(labelWithString: L10n.prefs.capturePref.frameRateNote)
         note.font = NSFont.systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
-        frameRateGroup.addArrangedSubview(note)
+        let noteContainer = PaddingView(
+            contentView: note,
+            insets: NSEdgeInsets(
+                top: 0,
+                left: 0,
+                bottom: LayoutMetrics.rowVerticalPadding * 1.5,
+                right: 0
+            )
+        )
+        addGroupRow(frameRateGroup, noteContainer, addDivider: false)
         addSettingsGroup(frameRateGroup, to: stackView)
 
-        setupScrollViewConstraints(scrollView: scrollView, contentView: stackView)
+        setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
         return scrollView
     }
 
@@ -385,7 +952,7 @@ final class PreferencesViewController: NSViewController {
 
         // 视频设置组
         let videoGroup = createSettingsGroup(title: L10n.prefs.section.video, icon: "video")
-        videoGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.bitrate) {
+        addGroupRow(videoGroup, createLabeledRow(label: L10n.prefs.scrcpyPref.bitrate) {
             let popup = NSPopUpButton()
             popup.addItems(withTitles: [
                 L10n.prefs.scrcpyPref.mbps(4),
@@ -403,7 +970,7 @@ final class PreferencesViewController: NSViewController {
             popup.action = #selector(scrcpyBitrateChanged(_:))
             return popup
         })
-        videoGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.maxSize) {
+        addGroupRow(videoGroup, createLabeledRow(label: L10n.prefs.scrcpyPref.maxSize) {
             let popup = NSPopUpButton()
             popup.addItems(withTitles: [
                 L10n.prefs.scrcpyPref.noLimit,
@@ -424,48 +991,41 @@ final class PreferencesViewController: NSViewController {
         let videoNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.maxSizeNote)
         videoNote.font = NSFont.systemFont(ofSize: 11)
         videoNote.textColor = .secondaryLabelColor
-        videoGroup.addArrangedSubview(videoNote)
+        let videoNoteContainer = PaddingView(
+            contentView: videoNote,
+            insets: NSEdgeInsets(
+                top: 0,
+                left: 0,
+                bottom: LayoutMetrics.rowVerticalPadding * 1.5,
+                right: 0
+            )
+        )
+        addGroupRow(videoGroup, videoNoteContainer, addDivider: false)
         addSettingsGroup(videoGroup, to: stackView)
 
         // 显示设置组
         let displayGroup = createSettingsGroup(title: L10n.prefs.section.display, icon: "hand.tap")
-        let showTouchesCheckbox = NSButton(
-            checkboxWithTitle: L10n.prefs.scrcpyPref.showTouches,
-            target: self,
+        addGroupRow(displayGroup, createCheckboxRow(
+            label: L10n.prefs.scrcpyPref.showTouches,
+            isOn: UserPreferences.shared.scrcpyShowTouches,
             action: #selector(scrcpyShowTouchesChanged(_:))
-        )
-        showTouchesCheckbox.state = UserPreferences.shared.scrcpyShowTouches ? .on : .off
-        displayGroup.addArrangedSubview(showTouchesCheckbox)
+        ))
         addSettingsGroup(displayGroup, to: stackView)
 
         // 高级设置组
         let advancedGroup = createSettingsGroup(title: L10n.prefs.section.advanced, icon: "gearshape.2")
 
-        // 使用内置 adb
-        let useBundledAdbCheckbox = NSButton(
-            checkboxWithTitle: L10n.prefs.scrcpyPref.useBundledAdb,
-            target: self,
-            action: #selector(useBundledAdbChanged(_:))
-        )
-        useBundledAdbCheckbox.state = UserPreferences.shared.useBundledAdb ? .on : .off
-        advancedGroup.addArrangedSubview(useBundledAdbCheckbox)
-        let useBundledAdbNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.useBundledAdbNote)
-        useBundledAdbNote.font = NSFont.systemFont(ofSize: 11)
-        useBundledAdbNote.textColor = .secondaryLabelColor
-        advancedGroup.addArrangedSubview(useBundledAdbNote)
-
         // 连接端口
-        advancedGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.port) {
-            let stack = NSStackView()
-            stack.orientation = .horizontal
+        addGroupRow(advancedGroup, createLabeledRow(label: L10n.prefs.scrcpyPref.port) {
+            let stack = StackContainerView()
+            stack.axis = .horizontal
+            stack.alignment = .centerY
             stack.spacing = 8
-            let textField = NSTextField()
+            let textField = FixedSizeTextField()
             textField.stringValue = String(UserPreferences.shared.scrcpyPort)
             textField.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
             textField.alignment = .center
-            textField.snp.makeConstraints { make in
-                make.width.equalTo(70)
-            }
+            textField.preferredWidth = 70
             textField.target = self
             textField.action = #selector(scrcpyPortChanged(_:))
             textField.tag = 3001
@@ -483,7 +1043,7 @@ final class PreferencesViewController: NSViewController {
         })
 
         // 视频编解码器
-        advancedGroup.addArrangedSubview(createLabeledRow(label: L10n.prefs.scrcpyPref.codec) {
+        addGroupRow(advancedGroup, createLabeledRow(label: L10n.prefs.scrcpyPref.codec) {
             let popup = NSPopUpButton()
             for codec in ScrcpyCodecType.allCases {
                 popup.addItem(withTitle: codec.displayName)
@@ -498,17 +1058,26 @@ final class PreferencesViewController: NSViewController {
         let advancedNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.advancedNote)
         advancedNote.font = NSFont.systemFont(ofSize: 11)
         advancedNote.textColor = .secondaryLabelColor
-        advancedGroup.addArrangedSubview(advancedNote)
+        addGroupRow(advancedGroup, advancedNote, addDivider: false)
         let linkButton = NSButton(
             title: L10n.prefs.scrcpyPref.github,
             target: self,
             action: #selector(openScrcpyGitHub)
         )
         linkButton.bezelStyle = .inline
-        advancedGroup.addArrangedSubview(linkButton)
+        let linkContainer = PaddingView(
+            contentView: linkButton,
+            insets: NSEdgeInsets(
+                top: 0,
+                left: 0,
+                bottom: LayoutMetrics.rowVerticalPadding * 1.5,
+                right: 0
+            )
+        )
+        addGroupRow(advancedGroup, linkContainer, addDivider: false)
         addSettingsGroup(advancedGroup, to: stackView)
 
-        setupScrollViewConstraints(scrollView: scrollView, contentView: stackView)
+        setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
         return scrollView
     }
 
@@ -520,20 +1089,20 @@ final class PreferencesViewController: NSViewController {
 
         // iOS 权限组
         let iosPermGroup = createSettingsGroup(title: L10n.prefs.section.iosPermissions, icon: "apple.logo")
-        iosPermGroup.addArrangedSubview(createPermissionRow(
+        addGroupRow(iosPermGroup, createPermissionRow(
             name: L10n.permission.cameraName,
             description: L10n.permission.cameraDesc,
             permissionType: .camera
-        ))
+        ), addDivider: false)
         addSettingsGroup(iosPermGroup, to: stackView)
 
         // Android 权限组
         let androidPermGroup = createSettingsGroup(title: L10n.prefs.section.androidPermissions, icon: "apps.iphone")
-        androidPermGroup.addArrangedSubview(createPermissionRow(
+        addGroupRow(androidPermGroup, createPermissionRow(
             name: L10n.permission.screenRecordingName,
             description: L10n.permission.screenRecordingDesc,
             permissionType: .screenRecording
-        ))
+        ), addDivider: false)
         addSettingsGroup(androidPermGroup, to: stackView)
 
         // 权限管理说明
@@ -541,10 +1110,6 @@ final class PreferencesViewController: NSViewController {
         permNoteLabel.font = NSFont.systemFont(ofSize: 11)
         permNoteLabel.textColor = .secondaryLabelColor
         stackView.addArrangedSubview(permNoteLabel)
-        permNoteLabel.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
-            make.trailing.equalToSuperview().offset(-16)
-        }
 
         // Android 工具链组
         let toolchainGroup = createSettingsGroup(
@@ -558,9 +1123,6 @@ final class PreferencesViewController: NSViewController {
             toolType: .adb
         )
         toolchainGroup.addArrangedSubview(adbRow)
-        adbRow.snp.makeConstraints { make in
-            make.width.equalToSuperview().offset(-24) // 减去左右 edgeInsets (12 * 2)
-        }
 
         let divider1 = NSBox()
         divider1.boxType = .separator
@@ -572,9 +1134,6 @@ final class PreferencesViewController: NSViewController {
             toolType: .scrcpy
         )
         toolchainGroup.addArrangedSubview(scrcpyRow)
-        scrcpyRow.snp.makeConstraints { make in
-            make.width.equalToSuperview().offset(-24)
-        }
 
         let divider2 = NSBox()
         divider2.boxType = .separator
@@ -586,9 +1145,6 @@ final class PreferencesViewController: NSViewController {
             toolType: .scrcpyServer
         )
         toolchainGroup.addArrangedSubview(scrcpyServerRow)
-        scrcpyServerRow.snp.makeConstraints { make in
-            make.width.equalToSuperview().offset(-24)
-        }
 
         addSettingsGroup(toolchainGroup, to: stackView)
 
@@ -601,13 +1157,15 @@ final class PreferencesViewController: NSViewController {
         refreshButton.bezelStyle = .rounded
         refreshButton.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil)
         refreshButton.imagePosition = .imageLeading
-        let buttonContainer = NSStackView()
-        buttonContainer.orientation = .horizontal
-        buttonContainer.addArrangedSubview(NSView()) // 占位
+        let buttonContainer = StackContainerView()
+        buttonContainer.axis = .horizontal
+        buttonContainer.alignment = .centerY
+        buttonContainer.fillsCrossAxis = true
+        buttonContainer.addArrangedSubview(FlexibleSpacerView())
         buttonContainer.addArrangedSubview(refreshButton)
         stackView.addArrangedSubview(buttonContainer)
 
-        setupScrollViewConstraints(scrollView: scrollView, contentView: stackView)
+        setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
         return scrollView
     }
 
@@ -623,135 +1181,168 @@ final class PreferencesViewController: NSViewController {
         return scrollView
     }
 
-    private func createVerticalStack() -> NSStackView {
-        let stack = NSStackView()
-        stack.orientation = .vertical
+    private func createVerticalStack() -> StackContainerView {
+        let stack = StackContainerView()
+        stack.axis = .vertical
         stack.alignment = .leading
         stack.spacing = 16
         stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        stack.fillsCrossAxis = true
         return stack
     }
 
-    private func setupScrollViewConstraints(scrollView: NSScrollView, contentView: NSStackView) {
+    private func setupScrollViewLayout(scrollView: NSScrollView, contentView: StackContainerView) {
         guard let documentView = scrollView.documentView else { return }
 
         // 将 stackView 添加到 documentView（FlippedView）中
         documentView.addSubview(contentView)
+        registerScrollViewLayout(scrollView: scrollView, contentView: contentView)
+        updateScrollViewLayout(scrollView: scrollView, contentView: contentView)
+    }
 
-        // 设置 contentView 约束
-        contentView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+    private func registerScrollViewLayout(scrollView: NSScrollView, contentView: StackContainerView) {
+        if scrollViewLayouts.contains(where: { $0.0 === scrollView }) {
+            return
         }
+        scrollViewLayouts.append((scrollView, contentView))
+    }
 
-        // 设置 documentView 约束（宽度等于 scrollView）
-        documentView.snp.makeConstraints { make in
-            make.leading.trailing.top.equalTo(scrollView.contentView)
-            make.width.equalTo(scrollView.contentView)
+    private func updateScrollViewLayouts() {
+        for (scrollView, contentView) in scrollViewLayouts {
+            updateScrollViewLayout(scrollView: scrollView, contentView: contentView)
         }
+    }
+
+    private func updateScrollViewLayout(scrollView: NSScrollView, contentView: StackContainerView) {
+        guard let documentView = scrollView.documentView else { return }
+        let contentWidth = scrollView.contentView.bounds.width
+        let size = contentView.requiredSize(for: contentWidth)
+        documentView.frame = CGRect(x: 0, y: 0, width: contentWidth, height: size.height)
+        contentView.frame = documentView.bounds
+        contentView.layoutSubtreeIfNeeded()
     }
 
     /// 创建设置分组，返回内容容器（contentBox）
     /// 注意：groupStack 会通过 contentBox.superview 访问
-    private func createSettingsGroup(title: String, icon: String) -> NSStackView {
-        let groupStack = NSStackView()
-        groupStack.orientation = .vertical
+    private func createSettingsGroup(title: String, icon: String) -> StackContainerView {
+        let groupStack = StackContainerView()
+        groupStack.axis = .vertical
         groupStack.alignment = .leading
         groupStack.spacing = 8
 
         // 标题行
-        let titleStack = NSStackView()
-        titleStack.orientation = .horizontal
+        let titleStack = StackContainerView()
+        titleStack.axis = .horizontal
+        titleStack.alignment = .centerY
         titleStack.spacing = 6
+        titleStack.fillsCrossAxis = true
         let iconView = NSImageView()
-        iconView.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)
+        let iconConfig = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        iconView.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)?
+            .withSymbolConfiguration(iconConfig)
         iconView.contentTintColor = .labelColor
+        iconView.imageScaling = .scaleProportionallyUpOrDown
         // 使用 frame 设置固定大小，避免约束冲突
-        iconView.setFrameSize(NSSize(width: 16, height: 16))
+        iconView.setFrameSize(NSSize(width: 18, height: 18))
         iconView.setContentHuggingPriority(.required, for: .horizontal)
         iconView.setContentHuggingPriority(.required, for: .vertical)
         titleStack.addArrangedSubview(iconView)
         let titleLabel = NSTextField(labelWithString: title)
         titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.lineBreakMode = .byWordWrapping
+        titleLabel.maximumNumberOfLines = 2
+        titleLabel.usesSingleLineMode = false
+        titleLabel.cell?.wraps = true
+        titleLabel.cell?.isScrollable = false
         titleStack.addArrangedSubview(titleLabel)
+        titleStack.setFlexible(titleLabel, isFlexible: true)
         groupStack.addArrangedSubview(titleStack)
 
         // 内容容器
-        let contentBox = NSStackView()
-        contentBox.orientation = .vertical
+        let contentBox = StackContainerView()
+        contentBox.axis = .vertical
         contentBox.alignment = .leading
-        contentBox.spacing = 10
+        contentBox.spacing = 0
+        contentBox.fillsCrossAxis = true
         contentBox.wantsLayer = true
         // 使用半透明的颜色来区分卡片和背景
         contentBox.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.05).cgColor
         contentBox.layer?.cornerRadius = 8
-        contentBox.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+        contentBox.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
         groupStack.addArrangedSubview(contentBox)
-
-        // 让 contentBox 宽度等于 groupStack 宽度
-        contentBox.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-        }
 
         return contentBox
     }
 
     /// 将设置分组添加到父 stackView，并设置宽度约束
-    private func addSettingsGroup(_ contentBox: NSStackView, to parentStack: NSStackView) {
-        guard let groupStack = contentBox.superview as? NSStackView else { return }
+    private func addSettingsGroup(_ contentBox: StackContainerView, to parentStack: StackContainerView) {
+        guard let groupStack = contentBox.superview as? StackContainerView else { return }
+        groupStack.fillsCrossAxis = true
         parentStack.addArrangedSubview(groupStack)
-        // 让 groupStack 宽度填满父视图
-        groupStack.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
-            make.trailing.equalToSuperview().offset(-16)
+    }
+
+    private func createLabeledRow(label: String, controlBuilder: () -> NSView) -> NSView {
+        let labelView = NSTextField(labelWithString: label)
+        labelView.font = NSFont.systemFont(ofSize: 13)
+        labelView.lineBreakMode = .byWordWrapping
+        labelView.maximumNumberOfLines = 0
+        labelView.usesSingleLineMode = false
+        labelView.cell?.wraps = true
+        labelView.cell?.isScrollable = false
+        labelView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        labelView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let control = controlBuilder()
+        control.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+
+        return LabeledRowView(label: labelView, control: control)
+    }
+
+    private func addGroupRow(_ contentBox: StackContainerView, _ row: NSView, addDivider: Bool = true) {
+        if addDivider, !contentBox.arrangedSubviews.isEmpty {
+            let divider = NSBox()
+            divider.boxType = .separator
+            divider.setFrameSize(NSSize(width: 0, height: 1))
+            contentBox.addArrangedSubview(divider)
+        }
+        contentBox.addArrangedSubview(row)
+    }
+
+    private func createCheckboxRow(
+        label: String,
+        isOn: Bool,
+        action: Selector,
+        configure: ((NSButton) -> Void)? = nil
+    ) -> NSView {
+        createLabeledRow(label: label) {
+            let checkbox = NSButton(checkboxWithTitle: "", target: self, action: action)
+            checkbox.state = isOn ? .on : .off
+            checkbox.setContentHuggingPriority(.required, for: .horizontal)
+            checkbox.setContentCompressionResistancePriority(.required, for: .horizontal)
+            configure?(checkbox)
+            return checkbox
         }
     }
 
-    private func createLabeledRow(label: String, controlBuilder: () -> NSView) -> NSStackView {
-        let rowStack = NSStackView()
-        rowStack.orientation = .horizontal
-        rowStack.alignment = .centerY
-        rowStack.spacing = 12
-
-        // Title 区域（左边）
-        let labelView = NSTextField(labelWithString: label)
-        labelView.font = NSFont.systemFont(ofSize: 13)
-        labelView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        labelView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        rowStack.addArrangedSubview(labelView)
-
-        // 弹性空间（推动 value 到右边）
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        rowStack.addArrangedSubview(spacer)
-
-        // Value 区域（右边）
-        let control = controlBuilder()
-        control.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        rowStack.addArrangedSubview(control)
-
-        return rowStack
-    }
-
-    private func createToolchainRow(name: String, description: String) -> NSStackView {
-        let rowStack = NSStackView()
-        rowStack.orientation = .horizontal
+    private func createToolchainRow(name: String, description: String) -> NSView {
+        let rowStack = StackContainerView()
+        rowStack.axis = .horizontal
         rowStack.alignment = .centerY
         rowStack.spacing = 8
+        rowStack.fillsCrossAxis = true
 
         // 状态图标
         let statusIcon = NSImageView()
         statusIcon.image = NSImage(systemSymbolName: "circle", accessibilityDescription: nil)
         statusIcon.contentTintColor = .secondaryLabelColor
-        statusIcon.snp.makeConstraints { make in
-            make.size.equalTo(18)
-        }
+        statusIcon.setFrameSize(NSSize(width: 18, height: 18))
         rowStack.addArrangedSubview(statusIcon)
 
         // 名称和描述
-        let infoStack = NSStackView()
-        infoStack.orientation = .vertical
+        let infoStack = StackContainerView()
+        infoStack.axis = .vertical
         infoStack.alignment = .leading
-        infoStack.spacing = 2
+        infoStack.spacing = 4
         let nameLabel = NSTextField(labelWithString: name)
         nameLabel.font = NSFont.systemFont(ofSize: 13)
         infoStack.addArrangedSubview(nameLabel)
@@ -759,13 +1350,11 @@ final class PreferencesViewController: NSViewController {
         descLabel.font = NSFont.systemFont(ofSize: 11)
         descLabel.textColor = .secondaryLabelColor
         infoStack.addArrangedSubview(descLabel)
-        infoStack.snp.makeConstraints { make in
-            make.width.equalTo(200).priority(.high)
-        }
+        infoStack.setFrameSize(NSSize(width: 200, height: infoStack.fittingSize.height))
         rowStack.addArrangedSubview(infoStack)
 
         // 占位
-        let spacer = NSView()
+        let spacer = FlexibleSpacerView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         rowStack.addArrangedSubview(spacer)
 
@@ -816,105 +1405,86 @@ final class PreferencesViewController: NSViewController {
             }
         }
 
-        return rowStack
+        return PaddingView(
+            contentView: rowStack,
+            insets: NSEdgeInsets(
+                top: LayoutMetrics.rowVerticalPadding,
+                left: 0,
+                bottom: LayoutMetrics.rowVerticalPadding,
+                right: 0
+            )
+        )
     }
 
-    private func createToolchainRowWithPath(name: String, description: String, toolType: ToolType) -> NSStackView {
-        let containerStack = NSStackView()
-        containerStack.orientation = .vertical
+    private func createToolchainRowWithPath(name: String, description: String, toolType: ToolType) -> NSView {
+        let containerStack = StackContainerView()
+        containerStack.axis = .vertical
         containerStack.alignment = .leading
-        containerStack.spacing = 8
+        containerStack.spacing = 0
+        containerStack.fillsCrossAxis = true
 
-        // 第一行：状态显示
-        let statusRow = NSStackView()
-        statusRow.orientation = .horizontal
-        statusRow.alignment = .centerY
-        statusRow.spacing = 8
+        // 第一行：状态显示（使用 LabeledRowView 布局）
+        // 左侧：状态图标 + 名称和描述
+        let leftStack = StackContainerView()
+        leftStack.axis = .horizontal
+        leftStack.alignment = .top
+        leftStack.spacing = 8
 
         // 状态图标
         let statusIcon = NSImageView()
         statusIcon.image = NSImage(systemSymbolName: "circle", accessibilityDescription: nil)
         statusIcon.contentTintColor = .secondaryLabelColor
-        statusIcon.snp.makeConstraints { make in
-            make.size.equalTo(18)
-        }
-        statusIcon.setContentHuggingPriority(.required, for: .horizontal)
-        statusIcon.setContentCompressionResistancePriority(.required, for: .horizontal)
-        statusRow.addArrangedSubview(statusIcon)
+        statusIcon.setFrameSize(NSSize(width: 18, height: 18))
+        leftStack.addArrangedSubview(statusIcon)
 
         // 名称和描述
-        let infoStack = NSStackView()
-        infoStack.orientation = .vertical
+        let infoStack = StackContainerView()
+        infoStack.axis = .vertical
         infoStack.alignment = .leading
-        infoStack.spacing = 2
+        infoStack.spacing = 4
         let nameLabel = NSTextField(labelWithString: name)
         nameLabel.font = NSFont.systemFont(ofSize: 13)
-        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         infoStack.addArrangedSubview(nameLabel)
-        let descLabel = NSTextField(labelWithString: description)
+        let descLabel = NSTextField(wrappingLabelWithString: description)
         descLabel.font = NSFont.systemFont(ofSize: 11)
         descLabel.textColor = .secondaryLabelColor
-        descLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         infoStack.addArrangedSubview(descLabel)
-        infoStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        infoStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        statusRow.addArrangedSubview(infoStack)
+        leftStack.addArrangedSubview(infoStack)
 
-        // 弹性空间（推动状态文本到右边）
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        statusRow.addArrangedSubview(spacer)
-
-        // 状态文本（右对齐）
+        // 右侧：状态文本
         let statusLabel = NSTextField(labelWithString: L10n.common.checking)
         statusLabel.font = NSFont.systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.alignment = .right
-        statusLabel.setContentHuggingPriority(.required, for: .horizontal)
-        statusLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        statusRow.addArrangedSubview(statusLabel)
 
+        let statusRow = LabeledRowView(labelView: leftStack, control: statusLabel)
         containerStack.addArrangedSubview(statusRow)
-        statusRow.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-        }
 
         // 第二行：自定义路径
-        let pathRow = NSStackView()
-        pathRow.orientation = .horizontal
-        pathRow.alignment = .centerY
-        pathRow.spacing = 8
-
-        // 使用自定义路径复选框
-        let useCustomCheckbox = NSButton(
-            checkboxWithTitle: L10n.prefs.toolchain.useCustomPath,
-            target: self,
+        let customPathRow = createCheckboxRow(
+            label: L10n.prefs.toolchain.useCustomPath,
+            isOn: useCustomPathForToolType(toolType),
             action: #selector(useCustomPathChanged(_:))
-        )
-        useCustomCheckbox.tag = tagForToolType(toolType, base: 4001)
-        useCustomCheckbox.state = useCustomPathForToolType(toolType) ? .on : .off
-        pathRow.addArrangedSubview(useCustomCheckbox)
-
-        containerStack.addArrangedSubview(pathRow)
+        ) { checkbox in
+            checkbox.tag = self.tagForToolType(toolType, base: 4001)
+        }
+        containerStack.addArrangedSubview(customPathRow)
 
         // 第三行：路径输入（仅在启用自定义路径时显示）
-        let pathInputRow = NSStackView()
-        pathInputRow.orientation = .horizontal
-        pathInputRow.alignment = .centerY
-        pathInputRow.spacing = 8
-        pathInputRow.isHidden = !useCustomPathForToolType(toolType)
+        let pathInputStack = StackContainerView()
+        pathInputStack.axis = .horizontal
+        pathInputStack.alignment = .centerY
+        pathInputStack.spacing = 8
 
-        let pathTextField = NSTextField()
+        let pathTextField = FixedSizeTextField()
         pathTextField.placeholderString = L10n.prefs.toolchain.pathPlaceholder
         pathTextField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         pathTextField.tag = tagForToolType(toolType, base: 4011)
         pathTextField.stringValue = customPathForToolType(toolType) ?? ""
         pathTextField.target = self
         pathTextField.action = #selector(customPathChanged(_:))
-        pathInputRow.addArrangedSubview(pathTextField)
-        pathTextField.snp.makeConstraints { make in
-            make.width.greaterThanOrEqualTo(200)
-        }
+        pathInputStack.addArrangedSubview(pathTextField)
+        pathTextField.preferredWidth = 200
 
         // 浏览按钮
         let browseButton = NSButton(
@@ -925,22 +1495,21 @@ final class PreferencesViewController: NSViewController {
         browseButton.bezelStyle = .rounded
         browseButton.controlSize = .small
         browseButton.tag = tagForToolType(toolType, base: 4021)
-        pathInputRow.addArrangedSubview(browseButton)
+        pathInputStack.addArrangedSubview(browseButton)
 
         // 验证图标
         let validationIcon = NSImageView()
         validationIcon.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: nil)
         validationIcon.contentTintColor = .secondaryLabelColor
         validationIcon.tag = tagForToolType(toolType, base: 4031)
-        validationIcon.snp.makeConstraints { make in
-            make.size.equalTo(16)
-        }
-        pathInputRow.addArrangedSubview(validationIcon)
+        validationIcon.setFrameSize(NSSize(width: 16, height: 16))
+        pathInputStack.addArrangedSubview(validationIcon)
 
+        // 使用空标签的 LabeledRowView 来保持一致的边距
+        let emptyLabel = NSTextField(labelWithString: "")
+        let pathInputRow = LabeledRowView(label: emptyLabel, control: pathInputStack)
+        pathInputRow.isHidden = !useCustomPathForToolType(toolType)
         containerStack.addArrangedSubview(pathInputRow)
-        pathInputRow.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-        }
 
         // 更新状态
         Task { @MainActor in
@@ -1135,66 +1704,45 @@ final class PreferencesViewController: NSViewController {
         case scrcpyServer
     }
 
-    private func createPermissionRow(name: String, description: String, permissionType: PermissionType) -> NSStackView {
-        let containerStack = NSStackView()
-        containerStack.orientation = .vertical
-        containerStack.alignment = .leading
-        containerStack.spacing = 8
-
-        let rowStack = NSStackView()
-        rowStack.orientation = .horizontal
-        rowStack.alignment = .top
-        rowStack.spacing = 8
+    private func createPermissionRow(name: String, description: String, permissionType: PermissionType) -> NSView {
+        // 左侧：状态图标 + 名称和描述
+        let leftStack = StackContainerView()
+        leftStack.axis = .horizontal
+        leftStack.alignment = .top
+        leftStack.spacing = 8
 
         // 状态图标
         let statusIcon = NSImageView()
         statusIcon.image = NSImage(systemSymbolName: "circle", accessibilityDescription: nil)
         statusIcon.contentTintColor = .secondaryLabelColor
-        statusIcon.snp.makeConstraints { make in
-            make.size.equalTo(18)
-        }
-        statusIcon.setContentHuggingPriority(.required, for: .horizontal)
-        statusIcon.setContentCompressionResistancePriority(.required, for: .horizontal)
-        rowStack.addArrangedSubview(statusIcon)
+        statusIcon.setFrameSize(NSSize(width: 18, height: 18))
+        leftStack.addArrangedSubview(statusIcon)
 
         // 名称和描述
-        let infoStack = NSStackView()
-        infoStack.orientation = .vertical
+        let infoStack = StackContainerView()
+        infoStack.axis = .vertical
         infoStack.alignment = .leading
-        infoStack.spacing = 2
+        infoStack.spacing = 4
         let nameLabel = NSTextField(labelWithString: name)
         nameLabel.font = NSFont.systemFont(ofSize: 13)
-        nameLabel.lineBreakMode = .byWordWrapping
-        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         infoStack.addArrangedSubview(nameLabel)
         let descLabel = NSTextField(wrappingLabelWithString: description)
         descLabel.font = NSFont.systemFont(ofSize: 11)
         descLabel.textColor = .secondaryLabelColor
-        descLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         infoStack.addArrangedSubview(descLabel)
-        infoStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        infoStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        rowStack.addArrangedSubview(infoStack)
+        leftStack.addArrangedSubview(infoStack)
 
-        // 弹性空间（推动右侧内容到右边）
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        rowStack.addArrangedSubview(spacer)
-
-        // 右侧容器（状态 + 按钮）
-        let rightStack = NSStackView()
-        rightStack.orientation = .horizontal
+        // 右侧：状态文本 + 按钮
+        let rightStack = StackContainerView()
+        rightStack.axis = .horizontal
         rightStack.alignment = .centerY
         rightStack.spacing = 8
-        rightStack.setContentHuggingPriority(.required, for: .horizontal)
-        rightStack.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         // 状态文本
         let statusLabel = NSTextField(labelWithString: L10n.common.checking)
         statusLabel.font = NSFont.systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.alignment = .right
-        statusLabel.setContentHuggingPriority(.required, for: .horizontal)
         rightStack.addArrangedSubview(statusLabel)
 
         // 打开设置按钮
@@ -1205,7 +1753,6 @@ final class PreferencesViewController: NSViewController {
         )
         openButton.bezelStyle = .rounded
         openButton.controlSize = .small
-        openButton.setContentHuggingPriority(.required, for: .horizontal)
         switch permissionType {
         case .screenRecording:
             openButton.tag = 0
@@ -1222,7 +1769,6 @@ final class PreferencesViewController: NSViewController {
         )
         revokeButton.bezelStyle = .rounded
         revokeButton.controlSize = .small
-        revokeButton.setContentHuggingPriority(.required, for: .horizontal)
         revokeButton.isHidden = true
         switch permissionType {
         case .screenRecording:
@@ -1231,12 +1777,6 @@ final class PreferencesViewController: NSViewController {
             revokeButton.tag = 11
         }
         rightStack.addArrangedSubview(revokeButton)
-
-        rowStack.addArrangedSubview(rightStack)
-        containerStack.addArrangedSubview(rowStack)
-        rowStack.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-        }
 
         // 检查权限状态
         Task { @MainActor in
@@ -1264,7 +1804,7 @@ final class PreferencesViewController: NSViewController {
             }
         }
 
-        return containerStack
+        return LabeledRowView(labelView: leftStack, control: rightStack)
     }
 
     private func checkScreenRecordingPermission() -> Bool {
@@ -1325,7 +1865,14 @@ final class PreferencesViewController: NSViewController {
             let label = sender.superview?.subviews
                 .first(where: { $0.tag == 2001 && $0 is NSTextField }) as? NSTextField {
             label.stringValue = L10n.prefs.connectionPref.seconds(Int(sender.intValue))
+            if let fixedLabel = label as? FixedSizeTextField {
+                fixedLabel.preferredWidth = preferredValueWidth(
+                    label.stringValue,
+                    font: fixedLabel.font ?? valueLabelFont
+                )
+            }
         }
+        view.needsLayout = true
     }
 
     @objc private func maxAttemptsChanged(_ sender: NSStepper) {
@@ -1335,7 +1882,14 @@ final class PreferencesViewController: NSViewController {
             let label = sender.superview?.subviews
                 .first(where: { $0.tag == 2002 && $0 is NSTextField }) as? NSTextField {
             label.stringValue = L10n.prefs.connectionPref.times(Int(sender.intValue))
+            if let fixedLabel = label as? FixedSizeTextField {
+                fixedLabel.preferredWidth = preferredValueWidth(
+                    label.stringValue,
+                    font: fixedLabel.font ?? valueLabelFont
+                )
+            }
         }
+        view.needsLayout = true
     }
 
     @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
@@ -1361,14 +1915,6 @@ final class PreferencesViewController: NSViewController {
 
     @objc private func scrcpyShowTouchesChanged(_ sender: NSButton) {
         UserPreferences.shared.scrcpyShowTouches = sender.state == .on
-    }
-
-    @objc private func useBundledAdbChanged(_ sender: NSButton) {
-        UserPreferences.shared.useBundledAdb = sender.state == .on
-        // 刷新工具链状态
-        Task {
-            await AppState.shared.toolchainManager.refresh()
-        }
     }
 
     @objc private func scrcpyPortChanged(_ sender: NSTextField) {
@@ -1479,9 +2025,9 @@ final class PreferencesViewController: NSViewController {
 
         // 查找对应的路径输入行并更新显示
         let pathInputTag = tagForToolType(toolType, base: 4011)
-        if let containerStack = sender.superview?.superview as? NSStackView {
+        if let containerStack = sender.superview?.superview as? StackContainerView {
             for arrangedSubview in containerStack.arrangedSubviews {
-                if let pathRow = arrangedSubview as? NSStackView {
+                if let pathRow = arrangedSubview as? StackContainerView {
                     for subview in pathRow.arrangedSubviews {
                         if let textField = subview as? NSTextField, textField.tag == pathInputTag {
                             pathRow.isHidden = !useCustom
@@ -1513,7 +2059,7 @@ final class PreferencesViewController: NSViewController {
 
         // 更新验证图标
         let validationTag = tagForToolType(toolType, base: 4031)
-        if let parentStack = sender.superview as? NSStackView {
+        if let parentStack = sender.superview as? StackContainerView {
             for subview in parentStack.arrangedSubviews {
                 if let icon = subview as? NSImageView, icon.tag == validationTag {
                     updatePathValidation(toolType: toolType, validationIcon: icon)
@@ -1565,7 +2111,7 @@ final class PreferencesViewController: NSViewController {
 
             // 更新文本框
             let textFieldTag = tagForToolType(toolType, base: 4011)
-            if let parentStack = sender.superview as? NSStackView {
+            if let parentStack = sender.superview as? StackContainerView {
                 for subview in parentStack.arrangedSubviews {
                     if let textField = subview as? NSTextField, textField.tag == textFieldTag {
                         textField.stringValue = path
@@ -1576,7 +2122,7 @@ final class PreferencesViewController: NSViewController {
 
             // 更新验证图标
             let validationTag = tagForToolType(toolType, base: 4031)
-            if let parentStack = sender.superview as? NSStackView {
+            if let parentStack = sender.superview as? StackContainerView {
                 for subview in parentStack.arrangedSubviews {
                     if let icon = subview as? NSImageView, icon.tag == validationTag {
                         updatePathValidation(toolType: toolType, validationIcon: icon)

@@ -325,8 +325,6 @@ enum L10n {
             static var noLimit: String { "prefs.scrcpy.noLimit".localized }
             static func pixels(_ n: Int) -> String { "prefs.scrcpy.pixels".localized(n) }
             static func mbps(_ n: Int) -> String { "prefs.scrcpy.mbps".localized(n) }
-            static var useBundledAdb: String { "prefs.scrcpy.useBundledAdb".localized }
-            static var useBundledAdbNote: String { "prefs.scrcpy.useBundledAdbNote".localized }
             static var port: String { "prefs.scrcpy.port".localized }
             static var codec: String { "prefs.scrcpy.codec".localized }
         }

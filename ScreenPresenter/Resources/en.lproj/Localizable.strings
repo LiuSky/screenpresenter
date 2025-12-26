@@ -143,8 +143,6 @@
 "prefs.scrcpy.noLimit" = "No Limit";
 "prefs.scrcpy.pixels" = "%d pixels";
 "prefs.scrcpy.mbps" = "%d Mbps";
-"prefs.scrcpy.useBundledAdb" = "Use Bundled adb";
-"prefs.scrcpy.useBundledAdbNote" = "Use the built-in adb tool instead of system-installed one";
 "prefs.scrcpy.port" = "Connection Port";
 "prefs.scrcpy.codec" = "Video Codec";
 
@@ -323,4 +321,3 @@
 "install.installSuccess" = "✅ scrcpy installed successfully\n";
 "install.installFailed" = "❌ Installation failed: %@\n";
 "install.verifyingInstall" = "🔍 Verifying installation...\n";
-

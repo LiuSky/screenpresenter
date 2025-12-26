@@ -18,7 +18,7 @@ import QuartzCore
 final class MetalRenderView: NSView {
     // MARK: - Metal 组件
 
-    private var metalLayer: CAMetalLayer!
+    private var metalLayer: CAMetalLayer?
     private var renderer: MetalRenderer?
     private var displayLink: CVDisplayLink?
 
@@ -95,17 +95,15 @@ final class MetalRenderView: NSView {
         wantsLayer = true
         layerContentsRedrawPolicy = .duringViewResize
 
-        metalLayer = layer as? CAMetalLayer
-        if metalLayer == nil {
-            metalLayer = CAMetalLayer()
-            layer = metalLayer
-        }
+        let resolvedLayer = (layer as? CAMetalLayer) ?? CAMetalLayer()
+        metalLayer = resolvedLayer
+        layer = resolvedLayer
 
-        metalLayer.device = MTLCreateSystemDefaultDevice()
-        metalLayer.pixelFormat = .bgra8Unorm
-        metalLayer.framebufferOnly = true
-        metalLayer.isOpaque = false
-        metalLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        resolvedLayer.device = MTLCreateSystemDefaultDevice()
+        resolvedLayer.pixelFormat = .bgra8Unorm
+        resolvedLayer.framebufferOnly = true
+        resolvedLayer.isOpaque = false
+        resolvedLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
 
         // 创建渲染器
         renderer = MetalRenderer()

@@ -9,7 +9,6 @@
 //
 
 import AppKit
-import SnapKit
 
 // MARK: - 布局模式
 
@@ -46,18 +45,18 @@ final class PreviewContainerView: NSView {
     // MARK: - UI 组件
 
     /// 左侧区域容器
-    private var leftAreaView: NSView!
+    private let leftAreaView = NSView()
     /// 右侧区域容器
-    private var rightAreaView: NSView!
+    private let rightAreaView = NSView()
 
     /// iOS 设备面板（默认在左侧）
-    private(set) var iosPanelView: DevicePanelView!
+    private(set) var iosPanelView = DevicePanelView()
     /// Android 设备面板（默认在右侧）
-    private(set) var androidPanelView: DevicePanelView!
+    private(set) var androidPanelView = DevicePanelView()
 
     /// 交换按钮
-    private(set) var swapButton: NSButton!
-    private var swapButtonIconLayer: CALayer!
+    private(set) var swapButton = NSButton(title: "", target: nil, action: nil)
+    private let swapButtonIconLayer = CALayer()
 
     // MARK: - 状态
 
@@ -79,6 +78,7 @@ final class PreviewContainerView: NSView {
     /// 是否首次布局
     private var isInitialLayout: Bool = true
     private var swapButtonAppearWorkItem: DispatchWorkItem?
+    private var isAnimatingManualLayout: Bool = false
 
     // MARK: - 常量
 
@@ -117,34 +117,23 @@ final class PreviewContainerView: NSView {
 
     private func setupAreaViews() {
         // 左侧区域容器
-        leftAreaView = NSView()
         addSubview(leftAreaView)
-        leftAreaView.snp.makeConstraints { make in
-            make.top.bottom.leading.equalToSuperview()
-            make.width.equalToSuperview().multipliedBy(0.5)
-        }
 
         // 右侧区域容器
-        rightAreaView = NSView()
         addSubview(rightAreaView)
-        rightAreaView.snp.makeConstraints { make in
-            make.top.bottom.trailing.equalToSuperview()
-            make.width.equalToSuperview().multipliedBy(0.5)
-        }
     }
 
     private func setupDevicePanels() {
         // iOS 面板（默认在左侧）
-        iosPanelView = DevicePanelView()
         addSubview(iosPanelView)
 
         // Android 面板（默认在右侧）
-        androidPanelView = DevicePanelView()
         addSubview(androidPanelView)
     }
 
     private func setupSwapButton() {
-        swapButton = NSButton(title: "", target: self, action: #selector(swapTapped))
+        swapButton.target = self
+        swapButton.action = #selector(swapTapped)
         swapButton.bezelStyle = .circular
         swapButton.isBordered = false
         swapButton.wantsLayer = true
@@ -155,7 +144,6 @@ final class PreviewContainerView: NSView {
         addSubview(swapButton)
 
         // 添加图标图层
-        swapButtonIconLayer = CALayer()
         swapButtonIconLayer.contentsGravity = .resizeAspect
         swapButton.layer?.addSublayer(swapButtonIconLayer)
 
@@ -169,11 +157,6 @@ final class PreviewContainerView: NSView {
         updateSwapButtonStyle()
 
         // 交换按钮约束
-        swapButton.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.centerY.equalToSuperview()
-            make.width.height.equalTo(32)
-        }
     }
 
     private func updateSwapButtonStyle() {
@@ -232,62 +215,27 @@ final class PreviewContainerView: NSView {
         // 更新按钮样式
         updateSwapButtonStyle()
 
-        // 更新区域可见性
+        // 更新区域可见性和位置
         updateAreaVisibility()
+        updateSwapButtonFrame()
 
         // 根据交换状态决定哪个面板在哪个区域
         // 默认 (isSwapped=false): iOS 在左侧，Android 在右侧
         // 交换后 (isSwapped=true): Android 在左侧，iOS 在右侧
-        let currentLeftPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let currentRightPanel = isSwapped ? iosPanelView! : androidPanelView!
+        let currentLeftPanel = isSwapped ? androidPanelView : iosPanelView
+        let currentRightPanel = isSwapped ? iosPanelView : androidPanelView
 
-        // 计算垂直内边距
-        let vPadding: CGFloat = isFullScreen ? 0 : verticalPadding
-        let showBezel = UserPreferences.shared.showDeviceBezel
-        let shouldFillHeight = isFullScreen && !showBezel
-
-        // 获取设备的 aspectRatio（宽/高）
-        let leftAspectRatio = currentLeftPanel.deviceAspectRatio
-        let rightAspectRatio = currentRightPanel.deviceAspectRatio
-
-        // 重置面板约束（不移动视图层级，只更新约束）
-        currentLeftPanel.snp.remakeConstraints { make in
-            if shouldFillHeight {
-                make.top.bottom.equalTo(leftAreaView)
-            } else {
-                make.top.equalTo(leftAreaView).offset(vPadding)
-                make.bottom.equalTo(leftAreaView).offset(-vPadding)
-            }
-            // 宽度 = 高度 * aspectRatio
-            make.width.equalTo(currentLeftPanel.snp.height).multipliedBy(leftAspectRatio)
-            // 在区域内水平居中，右侧留出 gap/2 的间隔
-            make.centerX.equalTo(leftAreaView)
-            // 确保不超出区域边界
-            make.leading.greaterThanOrEqualTo(leftAreaView)
-            make.trailing.lessThanOrEqualTo(leftAreaView)
-        }
-
-        currentRightPanel.snp.remakeConstraints { make in
-            if shouldFillHeight {
-                make.top.bottom.equalTo(rightAreaView)
-            } else {
-                make.top.equalTo(rightAreaView).offset(vPadding)
-                make.bottom.equalTo(rightAreaView).offset(-vPadding)
-            }
-            // 宽度 = 高度 * aspectRatio
-            make.width.equalTo(currentRightPanel.snp.height).multipliedBy(rightAspectRatio)
-            // 在区域内水平居中，左侧留出 gap/2 的间隔
-            make.centerX.equalTo(rightAreaView)
-            // 确保不超出区域边界
-            make.leading.greaterThanOrEqualTo(rightAreaView)
-            make.trailing.lessThanOrEqualTo(rightAreaView)
-        }
+        let leftAreaRect = leftAreaView.frame
+        let rightAreaRect = rightAreaView.frame
+        let leftPanelFrame = calculatePanelFrame(for: currentLeftPanel, in: leftAreaRect)
+        let rightPanelFrame = calculatePanelFrame(for: currentRightPanel, in: rightAreaRect)
 
         // 执行布局更新
         if isInitialLayout || !animated {
             isInitialLayout = false
             swapButton.alphaValue = 1
-            layoutSubtreeIfNeeded()
+            currentLeftPanel.frame = leftPanelFrame
+            currentRightPanel.frame = rightPanelFrame
         } else {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.35
@@ -301,7 +249,8 @@ final class PreviewContainerView: NSView {
                         self?.swapButton.alphaValue = 1
                     }
                 }
-                layoutSubtreeIfNeeded()
+                currentLeftPanel.animator().frame = leftPanelFrame
+                currentRightPanel.animator().frame = rightPanelFrame
             }
         }
     }
@@ -350,40 +299,26 @@ final class PreviewContainerView: NSView {
             leftAreaView.isHidden = false
             rightAreaView.isHidden = false
             swapButton.isHidden = false
-            // 恢复左右各占一半的布局
-            leftAreaView.snp.remakeConstraints { make in
-                make.top.bottom.leading.equalToSuperview()
-                make.width.equalToSuperview().multipliedBy(0.5)
-            }
-            rightAreaView.snp.remakeConstraints { make in
-                make.top.bottom.trailing.equalToSuperview()
-                make.width.equalToSuperview().multipliedBy(0.5)
-            }
+            updateAreaFrames()
 
         case .leftOnly:
             leftAreaView.isHidden = false
             rightAreaView.isHidden = true
             swapButton.isHidden = true
-            // 左侧区域占满整个容器
-            leftAreaView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
+            updateAreaFrames()
 
         case .rightOnly:
             leftAreaView.isHidden = true
             rightAreaView.isHidden = false
             swapButton.isHidden = true
-            // 右侧区域占满整个容器
-            rightAreaView.snp.remakeConstraints { make in
-                make.edges.equalToSuperview()
-            }
+            updateAreaFrames()
         }
     }
 
     /// 仅更新面板可见性（根据当前 layoutMode）
     private func updatePanelVisibility() {
-        let leftPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let rightPanel = isSwapped ? iosPanelView! : androidPanelView!
+        let leftPanel = isSwapped ? androidPanelView : iosPanelView
+        let rightPanel = isSwapped ? iosPanelView : androidPanelView
 
         switch layoutMode {
         case .dual:
@@ -410,8 +345,8 @@ final class PreviewContainerView: NSView {
         animated: Bool
     ) {
         // 根据交换状态确定哪个面板在左侧/右侧
-        let leftPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let rightPanel = isSwapped ? iosPanelView! : androidPanelView!
+        let leftPanel = isSwapped ? androidPanelView : iosPanelView
+        let rightPanel = isSwapped ? iosPanelView : androidPanelView
 
         if !animated {
             updateLayout(animated: false)
@@ -420,7 +355,7 @@ final class PreviewContainerView: NSView {
 
         // 动画参数
         let duration: TimeInterval = 0.3
-        let offsetDistance: CGFloat = 60
+        let offsetDistance: CGFloat = min(180, max(80, bounds.width * 0.15))
 
         switch (oldMode, newMode) {
         case (.dual, .leftOnly):
@@ -593,10 +528,10 @@ final class PreviewContainerView: NSView {
         } completionHandler: {
             hidingPanel.isHidden = true
             hidingPanel.alphaValue = 1
+            self.isAnimatingManualLayout = false
             // 动画完成后更新约束
             self.updateAreaConstraints()
-            self.updatePanelConstraints()
-            self.layoutSubtreeIfNeeded()
+            self.updatePanelFrames()
         }
     }
 
@@ -611,65 +546,102 @@ final class PreviewContainerView: NSView {
         offsetDistance: CGFloat,
         swapButtonDelay: TimeInterval
     ) {
+        // 1. 准备动画状态
         preparePanelsForManualAnimation()
-        elevatePanel(enteringPanel, above: stayingPanel)
 
-        // 1. 记录保留面板的初始位置
-        let stayingPanelStartFrame = stayingPanel.frame
+        // 2. 计算保留面板的初始位置（单设备中心位置）
+        let stayingPanelStartFrame = calculatePanelFrame(
+            for: stayingPanel,
+            in: areaRectForSingleMode()
+        )
 
-        // 2. 手动计算目标位置
+        // 3. 计算目标位置
         let leftAreaRect = leftAreaRectForDualMode()
         let rightAreaRect = rightAreaRectForDualMode()
 
-        // 根据 enterFromRight 决定哪个面板在哪个区域
         let stayingPanelEndFrame: CGRect
         let enteringPanelEndFrame: CGRect
 
         if enterFromRight {
-            // 进入面板从右侧进入，保留面板在左侧
             stayingPanelEndFrame = calculatePanelFrame(for: stayingPanel, in: leftAreaRect)
             enteringPanelEndFrame = calculatePanelFrame(for: enteringPanel, in: rightAreaRect)
         } else {
-            // 进入面板从左侧进入，保留面板在右侧
             stayingPanelEndFrame = calculatePanelFrame(for: stayingPanel, in: rightAreaRect)
             enteringPanelEndFrame = calculatePanelFrame(for: enteringPanel, in: leftAreaRect)
         }
 
-        // 3. 计算进入面板的初始位置（从外部滑入）
+        // 4. 计算进入面板的初始位置
+        // 初始位置：X 在目标位置的外侧（偏移 offsetDistance），Y 与目标位置相同
         let enterOffset = enterFromRight ? offsetDistance : -offsetDistance
-        let enteringPanelStartFrame = enteringPanelEndFrame.offsetBy(dx: enterOffset, dy: 0)
+        let enteringPanelStartFrame = CGRect(
+            x: enteringPanelEndFrame.origin.x + enterOffset,
+            y: enteringPanelEndFrame.origin.y, // Y 与目标相同，确保纯水平移动
+            width: enteringPanelEndFrame.width,
+            height: enteringPanelEndFrame.height
+        )
 
-        // 4. 更新 swapButton 样式
+        // 5. 更新 swapButton 样式
         updateSwapButtonStyle()
 
-        // 5. 先显示进入面板（透明状态），设置初始位置
+        // 6. 先调整层级（这可能触发布局）
+        elevatePanel(enteringPanel, above: stayingPanel)
+
+        // 7. 使用 CATransaction 设置初始状态并强制布局
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        // 设置 staying panel
+        stayingPanel.frame = stayingPanelStartFrame
+
+        // 设置 entering panel 的最终尺寸（不是起始位置）
+        // 这确保了子视图（如 bezelView）按最终尺寸布局
+        enteringPanel.frame = enteringPanelEndFrame
+        // 强制立即布局所有子视图
+        enteringPanel.layoutSubtreeIfNeeded()
+        // 再次确保禁用动画
+        CATransaction.flush()
+
+        // 现在将 entering panel 移到起始位置
+        // 由于子视图已经布局好了，这只会改变 panel 的位置，不会触发子视图重新布局
+        enteringPanel.frame = enteringPanelStartFrame
+
+        // 设置可见性
         enteringPanel.isHidden = false
         enteringPanel.alphaValue = 0
 
-        // 6. 使用 CATransaction 确保 frame 立即生效
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        enteringPanel.frame = enteringPanelStartFrame
-        stayingPanel.frame = stayingPanelStartFrame
         CATransaction.commit()
 
-        // 7. 执行动画
+        // 8. 执行动画
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            context.allowsImplicitAnimation = true
+            // 禁用隐式动画，只使用显式 animator() 调用
+            // 这可以防止子视图的 frame 变化产生意外的动画效果
+            context.allowsImplicitAnimation = false
 
-            // 存在的面板：位移
-            stayingPanel.animator().frame = stayingPanelEndFrame
+            // 存在的面板：仅水平位移
+            let stayingEndFrame = CGRect(
+                x: stayingPanelEndFrame.origin.x,
+                y: stayingPanelStartFrame.origin.y,
+                width: stayingPanelStartFrame.width,
+                height: stayingPanelStartFrame.height
+            )
+            stayingPanel.animator().frame = stayingEndFrame
 
-            // 出现的面板：位移 + 淡入
-            enteringPanel.animator().frame = enteringPanelEndFrame
+            // 出现的面板：仅水平位移（Y 和尺寸不变）+ 淡入
+            let enteringEndFrame = CGRect(
+                x: enteringPanelEndFrame.origin.x,
+                y: enteringPanelStartFrame.origin.y, // 保持 Y 不变
+                width: enteringPanelStartFrame.width,
+                height: enteringPanelStartFrame.height
+            )
+            enteringPanel.animator().frame = enteringEndFrame
             enteringPanel.animator().alphaValue = 1
         } completionHandler: {
+            self.isAnimatingManualLayout = false
             // 动画完成后更新约束
             self.updateAreaConstraints()
-            self.updatePanelConstraints()
-            self.layoutSubtreeIfNeeded()
+            self.updatePanelFrames()
             self.scheduleSwapButtonAppearance(after: swapButtonDelay)
         }
     }
@@ -688,8 +660,11 @@ final class PreviewContainerView: NSView {
         preparePanelsForManualAnimation()
         elevatePanel(showingPanel, above: hidingPanel)
 
-        // 1. 记录隐藏面板的初始位置
-        let hidingPanelStartFrame = hidingPanel.frame
+        // 1. 记录隐藏面板的初始位置（单设备中心位置，避免从(0,0)跳入）
+        let hidingPanelStartFrame = calculatePanelFrame(
+            for: hidingPanel,
+            in: areaRectForSingleMode()
+        )
 
         // 2. 手动计算目标位置
         // 显示面板的目标位置：在整个容器内居中
@@ -699,89 +674,85 @@ final class PreviewContainerView: NSView {
         let hideOffset = hideToRight ? offsetDistance : -offsetDistance
         let hidingPanelEndFrame = hidingPanelStartFrame.offsetBy(dx: hideOffset, dy: 0)
 
-        // 显示面板的初始位置：从外部滑入
+        // 显示面板的初始位置：从外部滑入（Y 与目标位置相同，确保纯水平移动）
         let showOffset = showFromRight ? offsetDistance : -offsetDistance
-        let showingPanelStartFrame = showingPanelEndFrame.offsetBy(dx: showOffset, dy: 0)
+        var showingPanelStartFrame = showingPanelEndFrame
+        showingPanelStartFrame.origin.x += showOffset
 
         // 3. 更新 swapButton 样式
         updateSwapButtonStyle()
 
-        // 4. 先显示面板（透明状态）
+        // 4. 使用 CATransaction 设置初始状态并强制布局
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        // 设置 hiding panel
+        hidingPanel.frame = hidingPanelStartFrame
+
+        // 设置 showing panel 的最终尺寸（确保子视图按最终尺寸布局）
+        showingPanel.frame = showingPanelEndFrame
+        // 强制立即布局所有子视图
+        showingPanel.layoutSubtreeIfNeeded()
+        // 确保布局完成
+        CATransaction.flush()
+
+        // 将 showing panel 移到起始位置
+        showingPanel.frame = showingPanelStartFrame
+
+        // 设置可见性
         showingPanel.isHidden = false
         showingPanel.alphaValue = 0
 
-        // 5. 使用 CATransaction 确保 frame 立即生效
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        showingPanel.frame = showingPanelStartFrame
-        hidingPanel.frame = hidingPanelStartFrame
         CATransaction.commit()
 
-        // 6. 执行动画
+        // 5. 执行动画
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            context.allowsImplicitAnimation = true
+            context.allowsImplicitAnimation = false
 
-            // 消失的面板：位移 + 淡出
-            hidingPanel.animator().frame = hidingPanelEndFrame
+            // 消失的面板：仅水平位移 + 淡出（Y 保持初始位置不变）
+            let hidingEndFrame = CGRect(
+                x: hidingPanelEndFrame.origin.x,
+                y: hidingPanelStartFrame.origin.y,
+                width: hidingPanelStartFrame.width,
+                height: hidingPanelStartFrame.height
+            )
+            hidingPanel.animator().frame = hidingEndFrame
             hidingPanel.animator().alphaValue = 0
 
-            // 出现的面板：位移 + 淡入
-            showingPanel.animator().frame = showingPanelEndFrame
+            // 出现的面板：仅水平位移 + 淡入（Y 保持不变）
+            let showingEndFrame = CGRect(
+                x: showingPanelEndFrame.origin.x,
+                y: showingPanelStartFrame.origin.y,
+                width: showingPanelStartFrame.width,
+                height: showingPanelStartFrame.height
+            )
+            showingPanel.animator().frame = showingEndFrame
             showingPanel.animator().alphaValue = 1
         } completionHandler: {
             hidingPanel.isHidden = true
             hidingPanel.alphaValue = 1
+            self.isAnimatingManualLayout = false
             // 动画完成后更新约束
             self.updateAreaConstraints()
-            self.updatePanelConstraints()
-            self.layoutSubtreeIfNeeded()
+            self.updatePanelFrames()
         }
     }
 
     /// 更新面板约束（不执行布局）
-    private func updatePanelConstraints() {
-        let currentLeftPanel = isSwapped ? androidPanelView! : iosPanelView!
-        let currentRightPanel = isSwapped ? iosPanelView! : androidPanelView!
+    private func updatePanelFrames() {
+        let currentLeftPanel = isSwapped ? androidPanelView : iosPanelView
+        let currentRightPanel = isSwapped ? iosPanelView : androidPanelView
 
-        let vPadding: CGFloat = isFullScreen ? 0 : verticalPadding
-        let showBezel = UserPreferences.shared.showDeviceBezel
-        let shouldFillHeight = isFullScreen && !showBezel
-
-        let leftAspectRatio = currentLeftPanel.deviceAspectRatio
-        let rightAspectRatio = currentRightPanel.deviceAspectRatio
-
-        currentLeftPanel.snp.remakeConstraints { make in
-            if shouldFillHeight {
-                make.top.bottom.equalTo(leftAreaView)
-            } else {
-                make.top.equalTo(leftAreaView).offset(vPadding)
-                make.bottom.equalTo(leftAreaView).offset(-vPadding)
-            }
-            make.width.equalTo(currentLeftPanel.snp.height).multipliedBy(leftAspectRatio)
-            make.centerX.equalTo(leftAreaView)
-            make.leading.greaterThanOrEqualTo(leftAreaView)
-            make.trailing.lessThanOrEqualTo(leftAreaView)
-        }
-
-        currentRightPanel.snp.remakeConstraints { make in
-            if shouldFillHeight {
-                make.top.bottom.equalTo(rightAreaView)
-            } else {
-                make.top.equalTo(rightAreaView).offset(vPadding)
-                make.bottom.equalTo(rightAreaView).offset(-vPadding)
-            }
-            make.width.equalTo(currentRightPanel.snp.height).multipliedBy(rightAspectRatio)
-            make.centerX.equalTo(rightAreaView)
-            make.leading.greaterThanOrEqualTo(rightAreaView)
-            make.trailing.lessThanOrEqualTo(rightAreaView)
-        }
+        let leftAreaRect = leftAreaView.frame
+        let rightAreaRect = rightAreaView.frame
+        currentLeftPanel.frame = calculatePanelFrame(for: currentLeftPanel, in: leftAreaRect)
+        currentRightPanel.frame = calculatePanelFrame(for: currentRightPanel, in: rightAreaRect)
     }
 
     private func preparePanelsForManualAnimation() {
-        iosPanelView.snp.removeConstraints()
-        androidPanelView.snp.removeConstraints()
+        isAnimatingManualLayout = true
         layoutSubtreeIfNeeded()
     }
 
@@ -797,7 +768,7 @@ final class PreviewContainerView: NSView {
         swapButton.alphaValue = 0
 
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self, self.layoutMode == .dual else { return }
+            guard let self, layoutMode == .dual else { return }
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.25
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -812,5 +783,43 @@ final class PreviewContainerView: NSView {
     private func cancelSwapButtonAppearance() {
         swapButtonAppearWorkItem?.cancel()
         swapButtonAppearWorkItem = nil
+    }
+
+    private func updateAreaFrames() {
+        let fullBounds = bounds
+        switch layoutMode {
+        case .dual:
+            let halfWidth = fullBounds.width / 2
+            leftAreaView.frame = CGRect(x: 0, y: 0, width: halfWidth, height: fullBounds.height)
+            rightAreaView.frame = CGRect(x: halfWidth, y: 0, width: halfWidth, height: fullBounds.height)
+        case .leftOnly:
+            leftAreaView.frame = fullBounds
+            rightAreaView.frame = .zero
+        case .rightOnly:
+            rightAreaView.frame = fullBounds
+            leftAreaView.frame = .zero
+        }
+    }
+
+    private func updateSwapButtonFrame() {
+        let size: CGFloat = 32
+        swapButton.frame = CGRect(
+            x: (bounds.width - size) / 2,
+            y: (bounds.height - size) / 2,
+            width: size,
+            height: size
+        )
+        let iconSize: CGFloat = 16
+        let iconOffset = (size - iconSize) / 2
+        swapButtonIconLayer.frame = CGRect(x: iconOffset, y: iconOffset, width: iconSize, height: iconSize)
+    }
+
+    override func layout() {
+        super.layout()
+        updateAreaFrames()
+        updateSwapButtonFrame()
+        if !isInitialLayout, !isAnimatingManualLayout {
+            updatePanelFrames()
+        }
     }
 }

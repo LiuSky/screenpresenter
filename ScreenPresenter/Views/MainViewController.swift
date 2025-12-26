@@ -10,14 +10,13 @@
 
 import AppKit
 import Combine
-import SnapKit
 
 // MARK: - 主视图控制器
 
 final class MainViewController: NSViewController {
     // MARK: - UI 组件
 
-    private var previewContainerView: PreviewContainerView!
+    private let previewContainerView = PreviewContainerView()
 
     // MARK: - 设备面板快捷访问
 
@@ -70,7 +69,7 @@ final class MainViewController: NSViewController {
         // 视图已添加到窗口，可以正确获取 titlebar 高度
         // 首次出现时缓存 titlebar 高度
         _ = titlebarHeight
-        updatePreviewContainerTopConstraint()
+        updatePreviewContainerFrame()
     }
 
     override func viewWillDisappear() {
@@ -87,16 +86,10 @@ final class MainViewController: NSViewController {
     }
 
     private func setupPreviewContainer() {
-        previewContainerView = PreviewContainerView()
         // 非全屏时使用默认背景色，全屏时使用用户偏好的黑色+透明度
         previewContainerView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         view.addSubview(previewContainerView)
-        previewContainerView.snp.makeConstraints { make in
-            // 顶部留出 titlebar 区域
-            // 初始使用 0，在 viewDidAppear 中会更新为正确的 titlebar 高度
-            make.top.equalToSuperview()
-            make.leading.trailing.bottom.equalToSuperview()
-        }
+        updatePreviewContainerFrame()
     }
 
     /// 动态获取 titlebar 高度
@@ -207,7 +200,7 @@ final class MainViewController: NSViewController {
         }
 
         // 更新 previewContainerView 的顶部约束
-        updatePreviewContainerTopConstraint()
+        updatePreviewContainerFrame()
     }
 
     /// 确保 toolbar 可见（退出全屏后调用）
@@ -216,14 +209,16 @@ final class MainViewController: NSViewController {
         window.toolbar?.isVisible = true
     }
 
-    private func updatePreviewContainerTopConstraint() {
+    private func updatePreviewContainerFrame() {
         // 全屏时内容区域延伸到顶部，非全屏时留出 titlebar 区域
         let topOffset: CGFloat = isFullScreen ? 0 : titlebarHeight
-
-        previewContainerView.snp.remakeConstraints { make in
-            make.top.equalToSuperview().offset(topOffset)
-            make.leading.trailing.bottom.equalToSuperview()
-        }
+        let bounds = view.bounds
+        previewContainerView.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: bounds.width,
+            height: max(0, bounds.height - topOffset)
+        )
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -240,6 +235,7 @@ final class MainViewController: NSViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        updatePreviewContainerFrame()
         // 当视图大小改变时更新追踪区域
         setupSwapButtonTracking()
         // 更新按钮可见性
@@ -623,7 +619,9 @@ final class MainViewController: NSViewController {
 private extension NSImage {
     /// 将图像着色为指定颜色
     func tinted(with color: NSColor) -> NSImage {
-        let image = copy() as! NSImage
+        guard let image = copy() as? NSImage else {
+            return self
+        }
         image.lockFocus()
         color.set()
         let imageRect = NSRect(origin: .zero, size: image.size)

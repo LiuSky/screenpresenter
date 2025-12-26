@@ -9,7 +9,6 @@
 //
 
 import AppKit
-import SnapKit
 
 // MARK: - 捕获信息视图
 
@@ -17,21 +16,21 @@ final class DeviceCaptureInfoView: NSView {
     // MARK: - UI 组件
 
     /// 内容容器（居中显示所有元素）
-    private var contentContainer: NSView!
+    private let contentContainer = NSView()
     /// 设备名称
-    private var deviceNameLabel: NSTextField!
+    private let deviceNameLabel = NSTextField(labelWithString: "")
     /// 设备详细信息（型号 · 系统版本）
-    private var deviceInfoLabel: NSTextField!
+    private let deviceInfoLabel = NSTextField(labelWithString: "")
     /// 分辨率
-    private var resolutionLabel: NSTextField!
+    private let resolutionLabel = NSTextField(labelWithString: "")
     /// FPS
-    private var fpsLabel: NSTextField!
+    private let fpsLabel = NSTextField(labelWithString: "")
     /// 停止按钮容器
-    private var stopButtonContainer: NSView!
+    private let stopButtonContainer = NSView()
     /// 停止按钮图标
-    private var stopButtonIcon: NSImageView!
+    private let stopButtonIcon = NSImageView()
     /// 顶部状态栏（captureIndicator + fpsLabel）
-    private var topStatusBar: NSView!
+    private let topStatusBar = NSView()
 
     // MARK: - 字体配置
 
@@ -43,7 +42,7 @@ final class DeviceCaptureInfoView: NSView {
     private let deviceInfoBaseFontSize: CGFloat = 16
     /// 设备名称标签的最小字体大小
     private let deviceInfoMinFontSize: CGFloat = 12
-    
+
     // MARK: - 回调
 
     var onStopTapped: (() -> Void)?
@@ -83,85 +82,46 @@ final class DeviceCaptureInfoView: NSView {
     }
 
     private func setupContentContainer() {
-        contentContainer = NSView()
         addSubview(contentContainer)
-        contentContainer.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview().offset(20)
-            make.trailing.lessThanOrEqualToSuperview().offset(-20)
-        }
     }
 
     private func setupTopStatusBar() {
         // 顶部状态栏：fpsLabel
-        topStatusBar = NSView()
         contentContainer.addSubview(topStatusBar)
-        topStatusBar.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.centerX.equalToSuperview()
-            make.width.greaterThanOrEqualTo(200)
-        }
 
         // FPS（中间）
-        fpsLabel = NSTextField(labelWithString: "")
         fpsLabel.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .medium)
         fpsLabel.textColor = .white
         fpsLabel.alignment = .center
         topStatusBar.addSubview(fpsLabel)
-        fpsLabel.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview()
-            make.centerX.equalToSuperview()
-        }
     }
 
     private func setupDeviceLabels() {
         // 分辨率（第二行，居中）
-        resolutionLabel = NSTextField(labelWithString: "")
         resolutionLabel.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         resolutionLabel.textColor = NSColor.white.withAlphaComponent(0.8)
         resolutionLabel.alignment = .center
         contentContainer.addSubview(resolutionLabel)
-        resolutionLabel.snp.makeConstraints { make in
-            make.top.equalTo(topStatusBar.snp.bottom).offset(20)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
 
         // 设备名称（第三行，居中）
-        deviceNameLabel = NSTextField(labelWithString: "")
         deviceNameLabel.font = NSFont.systemFont(ofSize: 22, weight: .semibold)
         deviceNameLabel.textColor = .white
         deviceNameLabel.alignment = .center
         deviceNameLabel.lineBreakMode = .byTruncatingTail
         deviceNameLabel.maximumNumberOfLines = 1
         contentContainer.addSubview(deviceNameLabel)
-        deviceNameLabel.snp.makeConstraints { make in
-            make.top.equalTo(resolutionLabel.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
 
         // 设备详细信息（第四行，居中）
-        deviceInfoLabel = NSTextField(labelWithString: "")
         deviceInfoLabel.font = NSFont.systemFont(ofSize: 16, weight: .regular)
         deviceInfoLabel.textColor = NSColor.white.withAlphaComponent(0.7)
         deviceInfoLabel.alignment = .center
         deviceInfoLabel.lineBreakMode = .byTruncatingTail
         deviceInfoLabel.maximumNumberOfLines = 1
         contentContainer.addSubview(deviceInfoLabel)
-        deviceInfoLabel.snp.makeConstraints { make in
-            make.top.equalTo(deviceNameLabel.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
-            make.leading.greaterThanOrEqualToSuperview()
-            make.trailing.lessThanOrEqualToSuperview()
-        }
     }
 
     private func setupStopButton() {
         // 停止按钮容器（圆形背景）
-        stopButtonContainer = NSView()
         stopButtonContainer.wantsLayer = true
         stopButtonContainer.layer?.cornerRadius = 24
         stopButtonContainer.layer?.backgroundColor = NSColor.appDanger.cgColor
@@ -180,12 +140,6 @@ final class DeviceCaptureInfoView: NSView {
         stopButtonContainer.addTrackingArea(trackingArea)
 
         contentContainer.addSubview(stopButtonContainer)
-        stopButtonContainer.snp.makeConstraints { make in
-            make.top.equalTo(deviceInfoLabel.snp.bottom).offset(24)
-            make.centerX.equalToSuperview()
-            make.width.height.equalTo(48)
-            make.bottom.equalToSuperview()
-        }
 
         // 停止图标
         let config = NSImage.SymbolConfiguration(pointSize: 18, weight: .bold)
@@ -194,12 +148,9 @@ final class DeviceCaptureInfoView: NSView {
             accessibilityDescription: L10n.overlayUI.stop
         )?.withSymbolConfiguration(config)
 
-        stopButtonIcon = NSImageView(image: stopImage ?? NSImage())
+        stopButtonIcon.image = stopImage ?? NSImage()
         stopButtonIcon.contentTintColor = .white
         stopButtonContainer.addSubview(stopButtonIcon)
-        stopButtonIcon.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -225,19 +176,18 @@ final class DeviceCaptureInfoView: NSView {
             }
         }
     }
-    
+
     // MARK: - 布局
 
     override func layout() {
         super.layout()
-        updateFontsForWidth()
+        layoutContent()
     }
 
     // MARK: - 字体自适应
 
     /// 根据可用宽度更新字体大小
-    private func updateFontsForWidth() {
-        let availableWidth = contentContainer.bounds.width
+    private func updateFontsForWidth(_ availableWidth: CGFloat) {
         guard availableWidth > 0 else { return }
 
         // 更新标题标签字体
@@ -258,7 +208,111 @@ final class DeviceCaptureInfoView: NSView {
         )
         deviceInfoLabel.font = subtitleFont
     }
-    
+
+    private func layoutContent() {
+        let availableWidth = max(0, bounds.width - 40)
+        updateFontsForWidth(availableWidth)
+
+        // 使用固定高度确保空标签也能正确显示
+        let fpsSize = fpsLabel.intrinsicContentSize
+        let topStatusHeight = max(fpsSize.height, 20)  // 最小高度 20
+        let fpsWidth = max(fpsSize.width, 80)  // 最小宽度 80
+        let topStatusWidth = min(availableWidth, max(200, fpsWidth))
+
+        let resolutionSize = resolutionLabel.intrinsicContentSize
+        let resolutionHeight = max(resolutionSize.height, 20)  // 最小高度 20
+        let resolutionWidth = max(min(availableWidth, resolutionSize.width), 120)  // 最小宽度 120
+        let deviceNameSize = deviceNameLabel.intrinsicContentSize
+        let deviceInfoSize = deviceInfoLabel.intrinsicContentSize
+
+        let deviceNameWidth = min(availableWidth, deviceNameSize.width)
+        // deviceInfoLabel 使用可用宽度，允许内容完整显示
+        let deviceInfoWidth = availableWidth
+
+        let contentWidth = max(topStatusWidth, resolutionWidth, deviceNameWidth, deviceInfoWidth, 48)
+        let totalHeight = topStatusHeight + 20
+            + resolutionHeight + 16
+            + deviceNameSize.height + 16
+            + deviceInfoSize.height + 24
+            + 48
+
+        contentContainer.frame = CGRect(
+            x: (bounds.width - contentWidth) / 2,
+            y: (bounds.height - totalHeight) / 2,
+            width: contentWidth,
+            height: totalHeight
+        )
+
+        // 从顶部开始向下布局（macOS 默认坐标系原点在左下角）
+        // y 从 totalHeight 开始递减，先放置的元素在视觉顶部
+        var y: CGFloat = totalHeight
+
+        // FPS（顶部）
+        y -= topStatusHeight
+        topStatusBar.frame = CGRect(
+            x: (contentWidth - topStatusWidth) / 2,
+            y: y,
+            width: topStatusWidth,
+            height: topStatusHeight
+        )
+        fpsLabel.frame = CGRect(
+            x: (topStatusWidth - fpsWidth) / 2,
+            y: 0,
+            width: fpsWidth,
+            height: topStatusHeight
+        )
+        y -= 20
+
+        // 分辨率
+        y -= resolutionHeight
+        resolutionLabel.frame = CGRect(
+            x: (contentWidth - resolutionWidth) / 2,
+            y: y,
+            width: resolutionWidth,
+            height: resolutionHeight
+        )
+        y -= 16
+
+        // 设备名称
+        y -= deviceNameSize.height
+        deviceNameLabel.frame = CGRect(
+            x: (contentWidth - deviceNameWidth) / 2,
+            y: y,
+            width: deviceNameWidth,
+            height: deviceNameSize.height
+        )
+        y -= 16
+
+        // 设备详情
+        y -= deviceInfoSize.height
+        deviceInfoLabel.frame = CGRect(
+            x: (contentWidth - deviceInfoWidth) / 2,
+            y: y,
+            width: deviceInfoWidth,
+            height: deviceInfoSize.height
+        )
+        y -= 24
+
+        // 停止按钮（底部）
+        y -= 48
+        stopButtonContainer.frame = CGRect(
+            x: (contentWidth - 48) / 2,
+            y: y,
+            width: 48,
+            height: 48
+        )
+
+        let iconSize: CGFloat = 18
+        // SF Symbol 可能有内部 baseline 偏移，视觉上微调 Y 坐标使其看起来居中
+        let iconY = (48 - iconSize) / 2 + 1  // 向上偏移 1 点
+        stopButtonIcon.frame = CGRect(
+            x: (48 - iconSize) / 2,
+            y: iconY,
+            width: iconSize,
+            height: iconSize
+        )
+    }
+
     // MARK: - 公开方法
 
     /// 更新设备信息
@@ -269,7 +323,7 @@ final class DeviceCaptureInfoView: NSView {
         deviceNameLabel.stringValue = deviceName
         deviceInfoLabel.stringValue = deviceInfo
         deviceInfoLabel.isHidden = deviceInfo.isEmpty
-        
+
         needsLayout = true
     }
 

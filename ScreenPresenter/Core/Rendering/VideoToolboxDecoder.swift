@@ -337,13 +337,20 @@ final class VideoToolboxDecoder {
         }
 
         // 复制数据到 block buffer
+        var didCopyBytes = false
         avccData.withUnsafeBytes { dataBuffer in
+            guard let baseAddress = dataBuffer.baseAddress else { return }
             _ = CMBlockBufferReplaceDataBytes(
-                with: dataBuffer.baseAddress!,
+                with: baseAddress,
                 blockBuffer: buffer,
                 offsetIntoDestination: 0,
                 dataLength: dataBuffer.count
             )
+            didCopyBytes = true
+        }
+        guard didCopyBytes else {
+            failedFrameCount += 1
+            return
         }
 
         // 创建 CMSampleBuffer
