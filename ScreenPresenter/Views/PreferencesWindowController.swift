@@ -90,6 +90,12 @@ private enum LayoutMetrics {
 private final class PaddingView: NSView {
     private let contentView: NSView
     private let insets: NSEdgeInsets
+    private var _tag: Int = 0
+
+    override var tag: Int {
+        get { _tag }
+        set { _tag = newValue }
+    }
 
     init(contentView: NSView, insets: NSEdgeInsets) {
         self.contentView = contentView
@@ -373,7 +379,7 @@ private final class StackContainerView: NSView {
             let height = max(0, textField.intrinsicContentSize.height)
             return CGSize(width: min(maxWidth, textField.preferredWidth), height: height)
         }
-        if let slider = view as? NSSlider, view.frame.width > 0 {
+        if view is NSSlider, view.frame.width > 0 {
             return CGSize(width: min(maxWidth, view.frame.width), height: max(0, view.frame.height))
         }
         if let imageView = view as? NSImageView {
@@ -542,7 +548,7 @@ private final class LabeledRowView: NSView {
             let height = max(0, textField.intrinsicContentSize.height)
             return CGSize(width: min(maxWidth, textField.preferredWidth), height: height)
         }
-        if let slider = view as? NSSlider, view.frame.width > 0 {
+        if view is NSSlider, view.frame.width > 0 {
             return CGSize(width: min(maxWidth, view.frame.width), height: max(0, view.frame.height))
         }
         if let imageView = view as? NSImageView {
@@ -1055,20 +1061,39 @@ final class PreferencesViewController: NSViewController {
             return popup
         })
 
+        // 高级配置说明（添加分割线，增加顶部间距）
         let advancedNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.advancedNote)
         advancedNote.font = NSFont.systemFont(ofSize: 11)
         advancedNote.textColor = .secondaryLabelColor
-        addGroupRow(advancedGroup, advancedNote, addDivider: false)
+        let advancedNoteContainer = PaddingView(
+            contentView: advancedNote,
+            insets: NSEdgeInsets(
+                top: LayoutMetrics.rowVerticalPadding,
+                left: 0,
+                bottom: 0,
+                right: 0
+            )
+        )
+        addGroupRow(advancedGroup, advancedNoteContainer, addDivider: true)
+
+        // GitHub 链接按钮（按文本宽度显示，增加与上方的间距）
         let linkButton = NSButton(
             title: L10n.prefs.scrcpyPref.github,
             target: self,
             action: #selector(openScrcpyGitHub)
         )
         linkButton.bezelStyle = .inline
+        linkButton.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        linkButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        // 使用 HStack 让按钮左对齐而不是撑满
+        let linkStack = NSStackView(views: [linkButton])
+        linkStack.orientation = .horizontal
+        linkStack.alignment = .leading
+        linkStack.distribution = .fill
         let linkContainer = PaddingView(
-            contentView: linkButton,
+            contentView: linkStack,
             insets: NSEdgeInsets(
-                top: 0,
+                top: LayoutMetrics.rowVerticalPadding,
                 left: 0,
                 bottom: LayoutMetrics.rowVerticalPadding * 1.5,
                 right: 0
@@ -1497,6 +1522,17 @@ final class PreferencesViewController: NSViewController {
         browseButton.tag = tagForToolType(toolType, base: 4021)
         pathInputStack.addArrangedSubview(browseButton)
 
+        // 清空按钮
+        let clearButton = NSButton(
+            image: NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: nil)!,
+            target: self,
+            action: #selector(clearToolPath(_:))
+        )
+        clearButton.bezelStyle = .regularSquare
+        clearButton.isBordered = false
+        clearButton.tag = tagForToolType(toolType, base: 4051)
+        pathInputStack.addArrangedSubview(clearButton)
+
         // 验证图标
         let validationIcon = NSImageView()
         validationIcon.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: nil)
@@ -1505,9 +1541,17 @@ final class PreferencesViewController: NSViewController {
         validationIcon.setFrameSize(NSSize(width: 16, height: 16))
         pathInputStack.addArrangedSubview(validationIcon)
 
-        // 使用空标签的 LabeledRowView 来保持一致的边距
-        let emptyLabel = NSTextField(labelWithString: "")
-        let pathInputRow = LabeledRowView(label: emptyLabel, control: pathInputStack)
+        // 使用 PaddingView 包装路径输入行，保持左对齐
+        let pathInputRow = PaddingView(
+            contentView: pathInputStack,
+            insets: NSEdgeInsets(
+                top: LayoutMetrics.rowVerticalPadding,
+                left: 0,
+                bottom: LayoutMetrics.rowVerticalPadding,
+                right: 0
+            )
+        )
+        pathInputRow.tag = tagForToolType(toolType, base: 4041)
         pathInputRow.isHidden = !useCustomPathForToolType(toolType)
         containerStack.addArrangedSubview(pathInputRow)
 
@@ -2024,16 +2068,22 @@ final class PreferencesViewController: NSViewController {
         }
 
         // 查找对应的路径输入行并更新显示
-        let pathInputTag = tagForToolType(toolType, base: 4011)
-        if let containerStack = sender.superview?.superview as? StackContainerView {
+        // 视图层级：checkbox -> LabeledRowView(customPathRow) -> containerStack
+        let pathInputRowTag = tagForToolType(toolType, base: 4041)
+        if
+            let customPathRow = sender.superview,
+            let containerStack = customPathRow.superview as? StackContainerView {
             for arrangedSubview in containerStack.arrangedSubviews {
-                if let pathRow = arrangedSubview as? StackContainerView {
-                    for subview in pathRow.arrangedSubviews {
-                        if let textField = subview as? NSTextField, textField.tag == pathInputTag {
-                            pathRow.isHidden = !useCustom
-                            break
-                        }
-                    }
+                // pathInputRow 是 PaddingView，有专门的 tag
+                if arrangedSubview.tag == pathInputRowTag {
+                    arrangedSubview.isHidden = !useCustom
+                    // 触发布局更新
+                    containerStack.needsLayout = true
+                    containerStack.layoutSubtreeIfNeeded()
+                    // 通知父视图重新布局
+                    containerStack.superview?.needsLayout = true
+                    containerStack.superview?.layoutSubtreeIfNeeded()
+                    break
                 }
             }
         }
@@ -2110,20 +2160,19 @@ final class PreferencesViewController: NSViewController {
             }
 
             // 更新文本框
+            // 视图层级：browseButton -> pathInputStack (StackContainerView)
             let textFieldTag = tagForToolType(toolType, base: 4011)
-            if let parentStack = sender.superview as? StackContainerView {
-                for subview in parentStack.arrangedSubviews {
+            if let pathInputStack = sender.superview as? StackContainerView {
+                for subview in pathInputStack.arrangedSubviews {
                     if let textField = subview as? NSTextField, textField.tag == textFieldTag {
                         textField.stringValue = path
                         break
                     }
                 }
-            }
 
-            // 更新验证图标
-            let validationTag = tagForToolType(toolType, base: 4031)
-            if let parentStack = sender.superview as? StackContainerView {
-                for subview in parentStack.arrangedSubviews {
+                // 更新验证图标
+                let validationTag = tagForToolType(toolType, base: 4031)
+                for subview in pathInputStack.arrangedSubviews {
                     if let icon = subview as? NSImageView, icon.tag == validationTag {
                         updatePathValidation(toolType: toolType, validationIcon: icon)
                         break
@@ -2135,6 +2184,41 @@ final class PreferencesViewController: NSViewController {
             Task {
                 await AppState.shared.toolchainManager.refresh()
             }
+        }
+    }
+
+    @objc private func clearToolPath(_ sender: NSButton) {
+        guard let toolType = toolTypeFromTag(sender.tag) else { return }
+
+        // 清空 UserPreferences
+        switch toolType {
+        case .adb:
+            UserPreferences.shared.customAdbPath = nil
+        case .scrcpy:
+            UserPreferences.shared.customScrcpyPath = nil
+        case .scrcpyServer:
+            UserPreferences.shared.customScrcpyServerPath = nil
+        }
+
+        // 清空文本框并更新验证图标
+        // 视图层级：clearButton -> pathInputStack (StackContainerView)
+        if let pathInputStack = sender.superview as? StackContainerView {
+            let textFieldTag = tagForToolType(toolType, base: 4011)
+            let validationTag = tagForToolType(toolType, base: 4031)
+
+            for subview in pathInputStack.arrangedSubviews {
+                if let textField = subview as? NSTextField, textField.tag == textFieldTag {
+                    textField.stringValue = ""
+                }
+                if let icon = subview as? NSImageView, icon.tag == validationTag {
+                    updatePathValidation(toolType: toolType, validationIcon: icon)
+                }
+            }
+        }
+
+        // 刷新工具链状态
+        Task {
+            await AppState.shared.toolchainManager.refresh()
         }
     }
 }

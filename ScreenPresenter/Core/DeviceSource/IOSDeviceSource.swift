@@ -14,6 +14,7 @@ import Combine
 import CoreMedia
 import CoreVideo
 import Foundation
+import os.lock
 
 // MARK: - iOS 设备源
 
@@ -38,8 +39,8 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     /// 视频输出代理
     private var videoDelegate: VideoCaptureDelegate?
 
-    /// 是否正在捕获（使用 nonisolated(unsafe) 允许跨隔离域访问）
-    private nonisolated(unsafe) var isCapturingFlag: Bool = false
+    /// 是否正在捕获（使用线程安全的原子操作）
+    private let capturingLock = OSAllocatedUnfairLock(initialState: false)
 
     /// 帧回调
     var onFrame: ((CVPixelBuffer) -> Void)?
@@ -126,7 +127,7 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
         AppLogger.capture.info("开始捕获 iOS 设备: \(iosDevice.name)")
 
         // ⚠️ 重要：在启动会话之前设置标志，避免竞态条件
-        isCapturingFlag = true
+        capturingLock.withLock { $0 = true }
         hasReceivedFirstFrame = false
 
         // 在后台线程启动会话
@@ -152,9 +153,12 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     }
 
     override func stopCapture() async {
-        guard isCapturingFlag else { return }
-
-        isCapturingFlag = false
+        let wasCapturing = capturingLock.withLock { current -> Bool in
+            let was = current
+            current = false
+            return was
+        }
+        guard wasCapturing else { return }
 
         await withCheckedContinuation { continuation in
             captureQueue.async { [weak self] in
@@ -250,8 +254,9 @@ final class IOSDeviceSource: BaseDeviceSource, @unchecked Sendable {
     private var hasReceivedFirstFrame = false
 
     private func handleVideoSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
-        // 检查捕获状态
-        guard isCapturingFlag else { return }
+        // 检查捕获状态（使用线程安全的原子读取）
+        let isCapturing = capturingLock.withLock { $0 }
+        guard isCapturing else { return }
 
         // 获取 CVPixelBuffer
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {

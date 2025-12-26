@@ -55,6 +55,23 @@ get_version() {
     fi
 }
 
+# 从 Info.plist 获取 build number
+get_build_number() {
+    # 优先从构建产物获取 build number
+    local built_plist="$EXPORT_PATH/$APP_NAME/Contents/Info.plist"
+    if [ -f "$built_plist" ]; then
+        /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$built_plist" 2>/dev/null && return
+    fi
+    
+    # 备选：从源代码 Info.plist 获取
+    local plist="$PROJECT_DIR/$PROJECT_NAME/Info.plist"
+    if [ -f "$plist" ]; then
+        /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist" 2>/dev/null || echo "1"
+    else
+        echo "1"
+    fi
+}
+
 # 辅助函数
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -154,10 +171,11 @@ create_dmg() {
         exit 1
     fi
     
-    # 从构建产物获取版本号
+    # 从构建产物获取版本号和 build number
     VERSION=$(get_version)
-    DMG_FINAL_NAME="${PROJECT_NAME}_${VERSION}.dmg"
-    log_info "检测到版本号: $VERSION"
+    BUILD_NUMBER=$(get_build_number)
+    DMG_FINAL_NAME="${PROJECT_NAME}_${VERSION}_${BUILD_NUMBER}.dmg"
+    log_info "检测到版本号: $VERSION, Build: $BUILD_NUMBER"
     
     # 清理旧的 DMG 目录
     rm -rf "$DMG_DIR"

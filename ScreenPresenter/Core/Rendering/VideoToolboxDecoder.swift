@@ -292,6 +292,8 @@ final class VideoToolboxDecoder {
     /// 销毁解压缩会话
     private func invalidateSession() {
         if let session = decompressionSession {
+            // 等待所有异步帧解码完成，避免回调访问已释放的内存
+            VTDecompressionSessionWaitForAsynchronousFrames(session)
             VTDecompressionSessionInvalidate(session)
             decompressionSession = nil
             AppLogger.capture.info("[VTDecoder] 解压缩会话已销毁")
