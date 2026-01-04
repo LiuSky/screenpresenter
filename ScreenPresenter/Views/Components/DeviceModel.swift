@@ -1090,97 +1090,97 @@ extension DeviceModel {
             .dynamicIsland(widthRatio: 0.321, heightRatio: 0.092)
         // Samsung 系列 - 居中打孔
         case .samsungGalaxyS, .samsungGalaxySUltra, .samsungGalaxyA, .samsungGalaxyNote:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .samsungGalaxyFold:
-            .punchHole(position: .topRight, sizeRatio: 0.022)
+            .punchHole(position: .topRight, sizeRatio: 0.032)
         case .samsungGalaxyFlip:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         // Google Pixel 系列 - 居中打孔
         case .googlePixel, .googlePixelPro, .googlePixelA:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .googlePixelFold:
-            .punchHole(position: .topRight, sizeRatio: 0.022)
+            .punchHole(position: .topRight, sizeRatio: 0.032)
         // 小米系列 - 居中或左上打孔
         case .xiaomiMi, .xiaomiUltra:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .xiaomiMix:
             .none // MIX 系列部分机型无打孔
         case .redmi, .redmiNote:
-            .punchHole(position: .center, sizeRatio: 0.030)
+            .punchHole(position: .center, sizeRatio: 0.040)
         case .redmiK, .poco:
-            .punchHole(position: .center, sizeRatio: 0.028)
-        // 一加系列 - 左上打孔
+            .punchHole(position: .center, sizeRatio: 0.038)
+        // 一加系列 - 居中打孔
         case .oneplus, .oneplusAce:
-            .punchHole(position: .topLeft, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .oneplusNord:
-            .punchHole(position: .topLeft, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         // OPPO 系列 - 左上打孔
         case .oppoFind, .oppoFindX:
-            .punchHole(position: .topLeft, sizeRatio: 0.025)
+            .punchHole(position: .topLeft, sizeRatio: 0.035)
         case .oppoReno:
-            .punchHole(position: .topLeft, sizeRatio: 0.028)
+            .punchHole(position: .topLeft, sizeRatio: 0.038)
         case .oppoA:
-            .punchHole(position: .center, sizeRatio: 0.030)
+            .punchHole(position: .center, sizeRatio: 0.038)
         // Vivo 系列 - 居中打孔
         case .vivoX:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .vivoXFold:
-            .punchHole(position: .topRight, sizeRatio: 0.022)
+            .punchHole(position: .topRight, sizeRatio: 0.032)
         case .vivoS, .vivoY:
-            .punchHole(position: .center, sizeRatio: 0.030)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .iqoo, .iqooNeo:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         // 华为/荣耀系列 - 居中或左上打孔
         case .huaweiP:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .huaweiMate:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .huaweiMateX:
-            .punchHole(position: .topRight, sizeRatio: 0.022)
+            .punchHole(position: .topRight, sizeRatio: 0.032)
         case .huaweiNova:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .honor, .honorMagic:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .honorX:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         // Realme 系列 - 左上打孔
         case .realmeGT:
-            .punchHole(position: .topLeft, sizeRatio: 0.025)
+            .punchHole(position: .topLeft, sizeRatio: 0.035)
         case .realme:
-            .punchHole(position: .topLeft, sizeRatio: 0.028)
+            .punchHole(position: .topLeft, sizeRatio: 0.038)
         // Sony Xperia 系列 - 无打孔（超窄边框设计）
         case .sonyXperia1, .sonyXperia5, .sonyXperia10:
             .none
         // Motorola 系列 - 居中打孔
         case .motorolaEdge:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .motorolaRazr:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .motoG:
-            .punchHole(position: .center, sizeRatio: 0.030)
+            .punchHole(position: .center, sizeRatio: 0.040)
         // ASUS 系列 - 居中打孔
         case .asusROG:
             .none // ROG Phone 部分机型无打孔
         case .asusZenfone:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         // 游戏手机系列 - 无打孔或居中打孔
         case .nubiaRedMagic:
             .none // 屏下摄像头
         case .blackShark:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .lenovoLegion:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         // 其他品牌
         case .meizu:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .nothingPhone:
-            .punchHole(position: .topLeft, sizeRatio: 0.025)
+            .punchHole(position: .topLeft, sizeRatio: 0.035)
         case .tcl, .zte:
-            .punchHole(position: .center, sizeRatio: 0.028)
+            .punchHole(position: .center, sizeRatio: 0.038)
         case .transsion:
-            .punchHole(position: .center, sizeRatio: 0.030)
+            .punchHole(position: .center, sizeRatio: 0.040)
         case .androidGeneric:
-            .punchHole(position: .center, sizeRatio: 0.025)
+            .punchHole(position: .center, sizeRatio: 0.035)
         case .unknown:
             .none
         }

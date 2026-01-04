@@ -1054,6 +1054,21 @@ final class PreferencesViewController: NSViewController {
             return popup
         })
 
+        // 最大尺寸说明
+        let maxSizeNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.maxSizeNote)
+        maxSizeNote.font = NSFont.systemFont(ofSize: 11)
+        maxSizeNote.textColor = .secondaryLabelColor
+        let maxSizeNoteContainer = PaddingView(
+            contentView: maxSizeNote,
+            insets: NSEdgeInsets(
+                top: -4,
+                left: 0,
+                bottom: 4,
+                right: 0
+            )
+        )
+        addGroupRow(androidGroup, maxSizeNoteContainer, addDivider: false)
+
         // 显示触摸点
         addGroupRow(androidGroup, createCheckboxRow(
             label: L10n.prefs.scrcpyPref.showTouches,
@@ -1099,22 +1114,8 @@ final class PreferencesViewController: NSViewController {
             popup.target = self
             popup.action = #selector(scrcpyCodecChanged(_:))
             return popup
-        })
+        }, addDivider: false)
 
-        // Android 配置说明
-        let androidNote = NSTextField(labelWithString: L10n.prefs.scrcpyPref.maxSizeNote)
-        androidNote.font = NSFont.systemFont(ofSize: 11)
-        androidNote.textColor = .secondaryLabelColor
-        let androidNoteContainer = PaddingView(
-            contentView: androidNote,
-            insets: NSEdgeInsets(
-                top: 0,
-                left: 0,
-                bottom: LayoutMetrics.rowVerticalPadding * 1.5,
-                right: 0
-            )
-        )
-        addGroupRow(androidGroup, androidNoteContainer, addDivider: false)
         addSettingsGroup(androidGroup, to: stackView)
 
         setupScrollViewLayout(scrollView: scrollView, contentView: stackView)
@@ -1940,6 +1941,8 @@ final class PreferencesViewController: NSViewController {
 
     private func checkCameraPermission() -> Bool {
         // 检查摄像头权限
+        // 注意：iOS 设备 USB 屏幕镜像使用 .muxed 媒体类型，但 .muxed 不支持 authorizationStatus 查询
+        // 实际上 .video 权限包含了对 muxed 设备的访问权限
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         return status == .authorized
     }
