@@ -133,7 +133,6 @@
 				0A7A9976317BC37F1A5CA0E6 /* ColorCompensationFilter.swift */,
 				4F62E54A16E9E965B7DA1F66 /* ColorProfileManager.swift */,
 			);
-			name = ColorCompensation;
 			path = ColorCompensation;
 			sourceTree = "<group>";
 		};
@@ -586,7 +585,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
@@ -619,7 +618,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = TNX486YJGV;
 				ENABLE_APP_SANDBOX = NO;
