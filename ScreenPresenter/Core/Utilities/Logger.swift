@@ -11,6 +11,55 @@
 import Foundation
 import os.log
 
+// MARK: - 日志缓存
+
+/// 内存中的日志环形缓存区，用于导出日志
+final class LogBuffer {
+    // MARK: - Singleton
+
+    static let shared = LogBuffer()
+
+    private init() {}
+
+    // MARK: - Private Properties
+
+    private var logs: [String] = []
+    private let maxEntries = 5000
+    private let lock = NSLock()
+
+    // MARK: - Public Methods
+
+    func append(_ message: String) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let entry = "[\(timestamp)] \(message)"
+        logs.append(entry)
+
+        if logs.count > maxEntries {
+            logs.removeFirst(logs.count - maxEntries)
+        }
+    }
+
+    func append(_ message: String, category: String, level: String) {
+        let formattedMessage = "[\(level)] [\(category)] \(message)"
+        append(formattedMessage)
+    }
+
+    func getLogs() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return logs
+    }
+
+    func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        logs.removeAll()
+    }
+}
+
 // MARK: - 日志分类
 
 /// 应用日志分类枚举
@@ -39,7 +88,7 @@ final class AppLogger {
 
     // MARK: - Private Properties
 
-    private let subsystem = Bundle.main.bundleIdentifier ?? "com.screenPresenter.app"
+    private let subsystem = Bundle.main.bundleIdentifier ?? "com.webull.screenPresenter"
 
     /// 缓存的 Logger 实例
     private var loggers: [LogCategory: Logger] = [:]
@@ -149,6 +198,11 @@ final class AppLogger {
             logger.log("\(formattedMessage, privacy: .public)")
         }
 
+        // 写入内存缓存，供导出使用（仅 info 级别以上，不包含 debug）
+        if level != .debug {
+            LogBuffer.shared.append(formattedMessage, category: category.rawValue, level: levelString(level))
+        }
+
         // 控制台输出（开发时使用）
         #if DEBUG
             if consoleOutputEnabled {
@@ -181,6 +235,17 @@ final class AppLogger {
         case .error: 3
         case .fault: 4
         default: 1
+        }
+    }
+
+    private func levelString(_ level: OSLogType) -> String {
+        switch level {
+        case .debug: "DEBUG"
+        case .info: "INFO"
+        case .default: "WARNING"
+        case .error: "ERROR"
+        case .fault: "FAULT"
+        default: "LOG"
         }
     }
 

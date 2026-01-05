@@ -180,6 +180,7 @@ enum L10n {
         static var quit: String { "menu.quit".localized }
         static var device: String { "menu.device".localized }
         static var refreshDevices: String { "menu.refreshDevices".localized }
+        static var exportLogs: String { "menu.exportLogs".localized }
         static var close: String { "menu.close".localized }
         static var view: String { "menu.view".localized }
         static var colorCompensation: String { "menu.colorCompensation".localized }
@@ -465,6 +466,15 @@ enum L10n {
         static var preventSleepTooltip: String { "toolbar.preventSleep.tooltip".localized }
         static var preventSleepOn: String { "toolbar.preventSleep.on".localized }
         static var preventSleepOff: String { "toolbar.preventSleep.off".localized }
+    }
+
+    // MARK: - Toast
+
+    enum toast {
+        static var exportLogsSuccess: String { "toast.exportLogsSuccess".localized }
+        static func exportLogsFailed(_ error: String) -> String {
+            String(format: "toast.exportLogsFailed".localized, error)
+        }
     }
 
     // MARK: - Permission

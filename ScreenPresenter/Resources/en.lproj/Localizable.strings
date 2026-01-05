@@ -33,6 +33,7 @@
 "menu.quit" = "Quit ScreenPresenter";
 "menu.device" = "Device";
 "menu.refreshDevices" = "Refresh Devices";
+"menu.exportLogs" = "Export Logs...";
 "menu.close" = "Close";
 "menu.window" = "Window";
 "menu.minimize" = "Minimize";
@@ -377,6 +378,10 @@
 "color.params.temperature" = "Temperature";
 "color.params.tint" = "Tint";
 "color.params.saturation" = "Saturation";
+
+// MARK: - Toast
+"toast.exportLogsSuccess" = "Logs exported successfully";
+"toast.exportLogsFailed" = "Failed to export logs: %@";
 
 // MARK: - Menu (Color)
 "menu.view" = "View";

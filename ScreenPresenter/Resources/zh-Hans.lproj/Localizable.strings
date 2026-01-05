@@ -33,6 +33,7 @@
 "menu.quit" = "退出 ScreenPresenter";
 "menu.device" = "设备";
 "menu.refreshDevices" = "刷新设备";
+"menu.exportLogs" = "导出日志...";
 "menu.close" = "关闭";
 "menu.window" = "窗口";
 "menu.minimize" = "最小化";
@@ -377,6 +378,10 @@
 "color.params.temperature" = "色温";
 "color.params.tint" = "色调";
 "color.params.saturation" = "饱和度";
+
+// MARK: - Toast
+"toast.exportLogsSuccess" = "日志导出成功";
+"toast.exportLogsFailed" = "日志导出失败: %@";
 
 // MARK: - Menu (Color)
 "menu.view" = "显示";

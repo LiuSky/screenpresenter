@@ -242,7 +242,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(refreshDevices(_:)),
             keyEquivalent: "r"
         )
+
         deviceMenu.addItem(NSMenuItem.separator())
+
+        // 导出日志
+        deviceMenu.addItem(
+            withTitle: L10n.menu.exportLogs,
+            action: #selector(exportLogs(_:)),
+            keyEquivalent: "E"
+        ).keyEquivalentModifierMask = [.command, .shift]
+
+        deviceMenu.addItem(NSMenuItem.separator())
+
         let closeItem = deviceMenu.addItem(
             withTitle: L10n.menu.close,
             action: #selector(NSWindow.performClose(_:)),
@@ -428,6 +439,110 @@ extension AppDelegate {
                 showRefreshToast()
             }
         }
+    }
+
+    /// 导出日志
+    @IBAction func exportLogs(_ sender: Any?) {
+        guard let window = mainWindow else { return }
+
+        let savePanel = NSSavePanel()
+        savePanel.nameFieldStringValue = "ScreenPresenter_logs_\(formattedTimestamp()).log"
+        savePanel.allowedContentTypes = [.plainText, .log]
+        savePanel.canCreateDirectories = true
+
+        savePanel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = savePanel.url else { return }
+            self?.collectAndExportLogs(to: url)
+        }
+    }
+
+    /// 格式化时间戳用于文件名
+    private func formattedTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        return formatter.string(from: Date())
+    }
+
+    /// 收集并导出日志
+    private func collectAndExportLogs(to url: URL) {
+        Task {
+            do {
+                let logs = try await collectSystemLogs()
+                try logs.write(to: url, atomically: true, encoding: .utf8)
+
+                await MainActor.run {
+                    // 显示成功提示并打开 Finder 选中文件
+                    ToastView.success(L10n.toast.exportLogsSuccess, in: mainWindow)
+                    NSWorkspace.shared.selectFile(
+                        url.path,
+                        inFileViewerRootedAtPath: url.deletingLastPathComponent().path
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    ToastView.error(L10n.toast.exportLogsFailed(error.localizedDescription), in: mainWindow)
+                }
+            }
+        }
+    }
+
+    /// 从系统日志收集应用日志
+    private func collectSystemLogs() async throws -> String {
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.webull.ScreenPresenter"
+        var allLogs = ""
+
+        // 添加头部信息
+        let header = """
+        ========================================
+        ScreenPresenter Log Export
+        ========================================
+        Export Time: \(ISO8601DateFormatter().string(from: Date()))
+        Bundle ID: \(bundleId)
+        App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
+        Build: \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown")
+        macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)
+        ========================================
+
+        """
+        allLogs += header
+
+        // 收集应用日志（info 级别以上，使用 --info 标志）
+        let appLogs = try await runLogCommand([
+            "show",
+            "--predicate", "subsystem == '\(bundleId)'",
+            "--last", "1h",
+            "--style", "compact",
+            "--info", // 包含 info 级别日志
+        ])
+        allLogs += "\n--- Application Logs ---\n"
+        allLogs += appLogs.isEmpty ? "(No logs found)\n" : appLogs
+
+        // 添加内存中的日志缓存（如果有）
+        let cachedLogs = LogBuffer.shared.getLogs()
+        if !cachedLogs.isEmpty {
+            allLogs += "\n--- In-Memory Log Buffer ---\n"
+            allLogs += cachedLogs.joined(separator: "\n")
+            allLogs += "\n"
+        }
+
+        return allLogs
+    }
+
+    /// 执行 log 命令并返回输出
+    private func runLogCommand(_ arguments: [String]) async throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+        process.arguments = arguments
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     @IBAction func toggleDeviceBezel(_ sender: Any?) {
