@@ -38,8 +38,14 @@ final class AudioPlayer {
     /// 混音节点（用于音量控制）
     private var mixerNode: AVAudioMixerNode?
 
-    /// 音频格式
+    /// 音频格式（输入格式，来自设备）
     private var audioFormat: AVAudioFormat?
+
+    /// 播放格式（输出格式，用于 AVAudioEngine，始终为 Float32 non-interleaved）
+    private var playbackFormat: AVAudioFormat?
+
+    /// 音频格式转换器（当输入格式不是 Float32 时使用）
+    private var audioConverter: AVAudioConverter?
 
     /// 是否正在播放
     private(set) var isPlaying = false
@@ -109,19 +115,61 @@ final class AudioPlayer {
             return false
         }
 
-        // 创建 AVAudioFormat
-        guard let format = AVAudioFormat(streamDescription: asbd) else {
+        // 创建 AVAudioFormat（输入格式）
+        guard let inputFormat = AVAudioFormat(streamDescription: asbd) else {
             AppLogger.capture.error("[AudioPlayer] 无法创建 AVAudioFormat")
             return false
         }
 
-        audioFormat = format
+        audioFormat = inputFormat
 
-        // 设置音频引擎
-        setupAudioEngine(format: format)
+        // 打印详细的格式信息用于调试
+        let formatFlags = asbd.pointee.mFormatFlags
+        let isFloat = (formatFlags & kAudioFormatFlagIsFloat) != 0
+        let isSignedInt = (formatFlags & kAudioFormatFlagIsSignedInteger) != 0
+        let bitsPerChannel = asbd.pointee.mBitsPerChannel
+
+        AppLogger.capture.info("""
+        [AudioPlayer] 输入格式详情:
+        - 采样率: \(inputFormat.sampleRate)Hz
+        - 声道数: \(inputFormat.channelCount)
+        - 位深: \(bitsPerChannel) bits
+        - 是否浮点: \(isFloat)
+        - 是否有符号整数: \(isSignedInt)
+        - 是否交错: \(inputFormat.isInterleaved)
+        """)
+
+        // 创建播放格式（始终使用 Float32 non-interleaved，AVAudioEngine 最佳兼容格式）
+        guard
+            let outputFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: inputFormat.sampleRate,
+                channels: inputFormat.channelCount,
+                interleaved: false
+            ) else {
+            AppLogger.capture.error("[AudioPlayer] 无法创建输出格式")
+            return false
+        }
+
+        playbackFormat = outputFormat
+
+        // 如果输入格式不是 Float32，创建转换器
+        if !isFloat || bitsPerChannel != 32 || inputFormat.isInterleaved {
+            guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+                AppLogger.capture.error("[AudioPlayer] 无法创建音频格式转换器")
+                return false
+            }
+            audioConverter = converter
+            AppLogger.capture
+                .info("[AudioPlayer] 已创建格式转换器: \(bitsPerChannel)bit \(isFloat ? "Float" : "Int") -> 32bit Float")
+        }
+
+        // 设置音频引擎（使用 Float32 non-interleaved 格式）
+        setupAudioEngine(format: outputFormat)
 
         isInitialized = true
-        AppLogger.capture.info("[AudioPlayer] 已初始化，格式: \(format.sampleRate)Hz, \(format.channelCount)ch")
+        AppLogger.capture
+            .info("[AudioPlayer] 已初始化，播放格式: \(outputFormat.sampleRate)Hz, \(outputFormat.channelCount)ch, Float32")
 
         return true
     }
@@ -171,6 +219,8 @@ final class AudioPlayer {
         playerNode = nil
         mixerNode = nil
         audioFormat = nil
+        playbackFormat = nil
+        audioConverter = nil
         isInitialized = false
 
         AppLogger.capture.info("[AudioPlayer] 已重置")
@@ -187,12 +237,12 @@ final class AudioPlayer {
             start()
         }
 
-        guard isPlaying, let playerNode, let audioFormat else { return }
+        guard isPlaying, let playerNode, let playbackFormat else { return }
 
         // 使用 autoreleasepool 避免内存累积
         autoreleasepool {
-            // 将 CMSampleBuffer 转换为 AVAudioPCMBuffer
-            guard let pcmBuffer = createPCMBuffer(from: sampleBuffer, format: audioFormat) else {
+            // 将 CMSampleBuffer 转换为 AVAudioPCMBuffer（带格式转换）
+            guard let pcmBuffer = createPCMBufferFromSampleBuffer(sampleBuffer, outputFormat: playbackFormat) else {
                 return
             }
 
@@ -434,6 +484,181 @@ final class AudioPlayer {
         playerNode = player
         mixerNode = mixer
     }
+
+    /// 从 CMSampleBuffer 创建 PCM 缓冲区（带格式转换）
+    /// 支持 Int16/Int32/Float32 输入，统一输出为 Float32 non-interleaved
+    /// - Parameters:
+    ///   - sampleBuffer: 输入的音频采样缓冲
+    ///   - outputFormat: 输出格式（Float32 non-interleaved）
+    /// - Returns: 转换后的 PCM 缓冲区
+    private func createPCMBufferFromSampleBuffer(
+        _ sampleBuffer: CMSampleBuffer,
+        outputFormat: AVAudioFormat
+    ) -> AVAudioPCMBuffer? {
+        // 获取采样数量
+        let numSamples = CMSampleBufferGetNumSamples(sampleBuffer)
+        guard numSamples > 0 else { return nil }
+
+        // 获取音频数据
+        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+            return nil
+        }
+
+        var length = 0
+        var dataPointer: UnsafeMutablePointer<Int8>?
+
+        let status = CMBlockBufferGetDataPointer(
+            blockBuffer,
+            atOffset: 0,
+            lengthAtOffsetOut: nil,
+            totalLengthOut: &length,
+            dataPointerOut: &dataPointer
+        )
+
+        guard status == kCMBlockBufferNoErr, let data = dataPointer else {
+            return nil
+        }
+
+        // 如果有转换器，使用转换器进行格式转换
+        if let converter = audioConverter, let inputFormat = audioFormat {
+            return convertAudioData(
+                data: data,
+                length: length,
+                inputFormat: inputFormat,
+                outputFormat: outputFormat,
+                frameCount: numSamples,
+                converter: converter
+            )
+        }
+
+        // 没有转换器意味着输入已经是 Float32 格式，直接创建 buffer
+        guard
+            let pcmBuffer = AVAudioPCMBuffer(
+                pcmFormat: outputFormat,
+                frameCapacity: AVAudioFrameCount(numSamples)
+            ) else {
+            return nil
+        }
+        pcmBuffer.frameLength = AVAudioFrameCount(numSamples)
+
+        // 直接复制 Float32 数据（需要处理 interleaved -> non-interleaved）
+        let channelCount = Int(outputFormat.channelCount)
+        let srcPtr = UnsafeRawPointer(data).assumingMemoryBound(to: Float.self)
+
+        if let inputFormat = audioFormat, inputFormat.isInterleaved {
+            // 输入是 interleaved，需要分离声道
+            for channel in 0..<channelCount {
+                guard let channelData = pcmBuffer.floatChannelData?[channel] else { continue }
+                for frame in 0..<numSamples {
+                    channelData[frame] = srcPtr[frame * channelCount + channel]
+                }
+            }
+        } else {
+            // 输入已经是 non-interleaved
+            for channel in 0..<channelCount {
+                guard let channelData = pcmBuffer.floatChannelData?[channel] else { continue }
+                let srcChannel = srcPtr.advanced(by: channel * numSamples)
+                memcpy(channelData, srcChannel, numSamples * MemoryLayout<Float>.size)
+            }
+        }
+
+        return pcmBuffer
+    }
+
+    /// 使用 AVAudioConverter 进行音频格式转换
+    /// - Parameters:
+    ///   - data: 原始音频数据指针
+    ///   - length: 数据长度
+    ///   - inputFormat: 输入格式
+    ///   - outputFormat: 输出格式
+    ///   - frameCount: 帧数
+    ///   - converter: 音频转换器
+    /// - Returns: 转换后的 PCM 缓冲区
+    private func convertAudioData(
+        data: UnsafeMutablePointer<Int8>,
+        length: Int,
+        inputFormat: AVAudioFormat,
+        outputFormat: AVAudioFormat,
+        frameCount: Int,
+        converter: AVAudioConverter
+    ) -> AVAudioPCMBuffer? {
+        // 创建输入缓冲区
+        guard
+            let inputBuffer = AVAudioPCMBuffer(
+                pcmFormat: inputFormat,
+                frameCapacity: AVAudioFrameCount(frameCount)
+            ) else {
+            return nil
+        }
+        inputBuffer.frameLength = AVAudioFrameCount(frameCount)
+
+        // 复制数据到输入缓冲区
+        let channelCount = Int(inputFormat.channelCount)
+        if inputFormat.isInterleaved {
+            // 交错格式：数据按 [L0 R0 L1 R1 ...] 排列
+            if inputFormat.commonFormat == .pcmFormatInt16 {
+                if let channelData = inputBuffer.int16ChannelData?[0] {
+                    memcpy(channelData, data, length)
+                }
+            } else if inputFormat.commonFormat == .pcmFormatInt32 {
+                if let channelData = inputBuffer.int32ChannelData?[0] {
+                    memcpy(channelData, data, length)
+                }
+            } else if inputFormat.commonFormat == .pcmFormatFloat32 {
+                if let channelData = inputBuffer.floatChannelData?[0] {
+                    memcpy(channelData, data, length)
+                }
+            }
+        } else {
+            // 非交错格式：每个声道的数据连续存储
+            let bytesPerSample = Int(inputFormat.streamDescription.pointee.mBytesPerFrame) / channelCount
+            let samplesPerChannel = frameCount
+
+            for channel in 0..<channelCount {
+                let srcOffset = channel * samplesPerChannel * bytesPerSample
+                if inputFormat.commonFormat == .pcmFormatInt16 {
+                    if let channelData = inputBuffer.int16ChannelData?[channel] {
+                        memcpy(channelData, data.advanced(by: srcOffset), samplesPerChannel * bytesPerSample)
+                    }
+                } else if inputFormat.commonFormat == .pcmFormatInt32 {
+                    if let channelData = inputBuffer.int32ChannelData?[channel] {
+                        memcpy(channelData, data.advanced(by: srcOffset), samplesPerChannel * bytesPerSample)
+                    }
+                } else if inputFormat.commonFormat == .pcmFormatFloat32 {
+                    if let channelData = inputBuffer.floatChannelData?[channel] {
+                        memcpy(channelData, data.advanced(by: srcOffset), samplesPerChannel * bytesPerSample)
+                    }
+                }
+            }
+        }
+
+        // 创建输出缓冲区
+        guard
+            let outputBuffer = AVAudioPCMBuffer(
+                pcmFormat: outputFormat,
+                frameCapacity: AVAudioFrameCount(frameCount)
+            ) else {
+            return nil
+        }
+
+        // 执行格式转换
+        var error: NSError?
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            outStatus.pointee = .haveData
+            return inputBuffer
+        }
+
+        let conversionStatus = converter.convert(to: outputBuffer, error: &error, withInputFrom: inputBlock)
+
+        if conversionStatus == .error {
+            AppLogger.capture.error("[AudioPlayer] 音频格式转换失败: \(error?.localizedDescription ?? "未知错误")")
+            return nil
+        }
+
+        return outputBuffer
+    }
+
+    // MARK: - 旧方法（保留给其他可能的调用者，但 iOS 不再使用）
 
     private func createPCMBuffer(from sampleBuffer: CMSampleBuffer, format: AVAudioFormat) -> AVAudioPCMBuffer? {
         // 获取采样数量
