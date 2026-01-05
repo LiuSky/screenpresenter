@@ -66,9 +66,9 @@
 		G1000001000000000001 /* AndroidADBService.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000001 /* AndroidADBService.swift */; };
 		G1000001000000000002 /* ScrcpyServerLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000002 /* ScrcpyServerLauncher.swift */; };
 		G1000001000000000003 /* ScrcpySocketAcceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000003 /* ScrcpySocketAcceptor.swift */; };
-			G60942986538400935988421 /* ScrcpyErrorHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = G34952747508024177339802 /* ScrcpyErrorHelper.swift */; };
 		G1000001000000000004 /* ScrcpyVideoStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000004 /* ScrcpyVideoStreamParser.swift */; };
 		G1000001000000000005 /* VideoToolboxDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000002000000000005 /* VideoToolboxDecoder.swift */; };
+		G60942986538400935988421 /* ScrcpyErrorHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = G34952747508024177339802 /* ScrcpyErrorHelper.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -133,9 +133,9 @@
 		G1000002000000000001 /* AndroidADBService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidADBService.swift; sourceTree = "<group>"; };
 		G1000002000000000002 /* ScrcpyServerLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyServerLauncher.swift; sourceTree = "<group>"; };
 		G1000002000000000003 /* ScrcpySocketAcceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpySocketAcceptor.swift; sourceTree = "<group>"; };
-			G34952747508024177339802 /* ScrcpyErrorHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyErrorHelper.swift; sourceTree = "<group>"; };
 		G1000002000000000004 /* ScrcpyVideoStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyVideoStreamParser.swift; sourceTree = "<group>"; };
 		G1000002000000000005 /* VideoToolboxDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoToolboxDecoder.swift; sourceTree = "<group>"; };
+		G34952747508024177339802 /* ScrcpyErrorHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrcpyErrorHelper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -350,7 +350,7 @@
 				A481F7AD2F0BB5F200D9DAB0 /* ScrcpyRAWDecoder.swift */,
 				G1000002000000000002 /* ScrcpyServerLauncher.swift */,
 				G1000002000000000003 /* ScrcpySocketAcceptor.swift */,
-						G34952747508024177339802 /* ScrcpyErrorHelper.swift */,
+				G34952747508024177339802 /* ScrcpyErrorHelper.swift */,
 				G1000002000000000004 /* ScrcpyVideoStreamParser.swift */,
 			);
 			path = Scrcpy;
@@ -660,7 +660,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.webull.ScreenPresenter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -693,7 +693,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.webull.ScreenPresenter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
