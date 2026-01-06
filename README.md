@@ -241,8 +241,8 @@ if currentPending > maxPendingFrames, !nalUnit.isKeyFrame {
 
 | 特性 | 说明 |
 |------|------|
-| 动态岛 | iPhone 14 Pro+ |
-| 刘海 | iPhone X - 14 |
+| 动态岛 | iPhone 14 Pro 及之后（15/16/17 全系、Air） |
+| 刘海 | iPhone X ~ 14/14 Plus、16e |
 | 打孔屏 | 大多数 Android |
 | Home 按钮 | iPhone SE / Legacy |
 | 侧边按键 | 静音开关 / 音量键 / 电源键 |

@@ -29,10 +29,14 @@ enum DeviceModel: Equatable {
     /// - 17 Pro Max: 6.9" 2868×1320 @460ppi, 边框预计 ~1.0mm
     case iPhone17Pro
 
-    /// iPhone 17 / 17 Air (2025)
+    /// iPhone 17 / 17 Plus (2025)
     /// - 17: 6.3" 2622×1206 @460ppi
-    /// - 17 Air: 6.6" 2740×1280 @460ppi (超薄设计)
+    /// - 17 Plus: 6.7" (预计)
     case iPhone17
+
+    /// iPhone Air (2025) - 超薄设计
+    /// - 6.6" 2740×1280 @460ppi
+    case iPhoneAir
 
     /// iPhone 16 Pro / 16 Pro Max (2024)
     /// - 16 Pro: 6.3" 2622×1206 @460ppi, 设备宽 71.5mm, 边框 1.15mm
@@ -60,6 +64,10 @@ enum DeviceModel: Equatable {
     case iPhone14Pro
 
     // MARK: - iPhone 刘海屏系列
+
+    /// iPhone 16e (2025) - 刘海屏
+    /// - 6.1" 2532×1170 @460ppi
+    case iPhone16e
 
     /// iPhone 14 / 14 Plus (2022) - 小刘海
     /// - 14: 6.1" 2532×1170 @460ppi, 设备宽 71.5mm, 边框 2.39mm
@@ -288,12 +296,18 @@ extension DeviceModel {
         // iPhone 17 - 预计与 16 Pro 相同
         case .iPhone17:
             0.140
+        // iPhone Air - 预计与 16 Pro 相同
+        case .iPhoneAir:
+            0.140
         // iPhone 16 Pro - 屏幕圆角 55pt / 393pt
         case .iPhone16Pro:
             0.140
         // iPhone 16 - 屏幕圆角 55pt / 393pt
         case .iPhone16:
             0.140
+        // iPhone 16e - 屏幕圆角 47.33pt / 390pt (类似 iPhone 14)
+        case .iPhone16e:
+            0.121
         // iPhone 15 Pro - 屏幕圆角 55pt / 393pt
         case .iPhone15Pro:
             0.140
@@ -394,8 +408,11 @@ extension DeviceModel {
         // iPhone 17 Pro Max - 6.9" (2868×1320)
         case .iPhone17Pro:
             1320.0 / 2868.0
-        // iPhone 17 Air - 6.6" (2740×1280)
+        // iPhone 17 - 6.3" (2622×1206)
         case .iPhone17:
+            1206.0 / 2622.0
+        // iPhone Air - 6.6" (2740×1280)
+        case .iPhoneAir:
             1280.0 / 2740.0
         // iPhone 16 Pro Max - 6.9" (2868×1320)
         case .iPhone16Pro:
@@ -403,6 +420,9 @@ extension DeviceModel {
         // iPhone 16 Plus - 6.7" (2796×1290)
         case .iPhone16:
             1290.0 / 2796.0
+        // iPhone 16e - 6.1" (2532×1170)
+        case .iPhone16e:
+            1170.0 / 2532.0
         // iPhone 15 Pro Max
         case .iPhone15Pro:
             1290.0 / 2796.0
@@ -554,12 +574,18 @@ extension DeviceModel {
         // iPhone 17 - 铝金属边框
         case .iPhone17:
             0.007
+        // iPhone Air - 超薄设计，预计边框更薄
+        case .iPhoneAir:
+            0.006
         // iPhone 16 Pro - 钛金属边框
         case .iPhone16Pro:
             0.006
         // iPhone 16 - 铝金属边框
         case .iPhone16:
             0.007
+        // iPhone 16e - 铝金属边框
+        case .iPhone16e:
+            0.008
         // iPhone 15 Pro - 钛金属边框
         case .iPhone15Pro:
             0.006
@@ -678,12 +704,18 @@ extension DeviceModel {
         // iPhone 17 - 预计与 16 Pro 相近
         case .iPhone17:
             0.016
+        // iPhone Air - 超薄设计，边框窄
+        case .iPhoneAir:
+            0.016
         // iPhone 16 Pro - 1.15mm / 71.5mm (业界最窄边框)
         case .iPhone16Pro:
             0.016
         // iPhone 16 - 1.85mm / 71.6mm
         case .iPhone16:
             0.026
+        // iPhone 16e - 类似 iPhone 14 的边框
+        case .iPhone16e:
+            0.033
         // iPhone 15 Pro - 1.55mm / 70.6mm
         case .iPhone15Pro:
             0.022
@@ -826,12 +858,18 @@ extension DeviceModel {
         // iPhone 17 - 预计与 16 Pro 相近
         case .iPhone17:
             0.153
+        // iPhone Air - 超薄设计
+        case .iPhoneAir:
+            0.153
         // iPhone 16 Pro - 设备圆角约 60pt / 393pt
         case .iPhone16Pro:
             0.153
         // iPhone 16 - 设备圆角约 58pt / 393pt
         case .iPhone16:
             0.148
+        // iPhone 16e - 类似 iPhone 14
+        case .iPhone16e:
+            0.138
         // iPhone 15 Pro
         case .iPhone15Pro:
             0.153
@@ -927,11 +965,14 @@ extension DeviceModel {
         // iPhone 17/16/15 Pro - 钛金属
         case .iPhone17Pro, .iPhone16Pro, .iPhone15Pro:
             NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1.0)
+        // iPhone Air - 轻量设计，铝金属
+        case .iPhoneAir:
+            NSColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0)
         // iPhone 14 Pro - 不锈钢
         case .iPhone14Pro:
             NSColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1.0)
         // iPhone 标准版 - 铝金属
-        case .iPhone17, .iPhone16, .iPhone15, .iPhone14, .iPhone13, .iPhone13Pro, .iPhone12, .iPhone11, .iPhoneX:
+        case .iPhone17, .iPhone16, .iPhone16e, .iPhone15, .iPhone14, .iPhone13, .iPhone13Pro, .iPhone12, .iPhone11, .iPhoneX:
             NSColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0)
         // iPhone SE / Legacy
         case .iPhoneSE, .iPhoneLegacy:
@@ -1052,6 +1093,9 @@ extension DeviceModel {
         // iPhone 17 - 动态岛
         case .iPhone17:
             .dynamicIsland(widthRatio: 0.321, heightRatio: 0.091)
+        // iPhone Air - 动态岛
+        case .iPhoneAir:
+            .dynamicIsland(widthRatio: 0.321, heightRatio: 0.091)
         // iPhone 16 Pro - 动态岛 126pt×36pt / 393pt
         case .iPhone16Pro:
             .dynamicIsland(widthRatio: 0.321, heightRatio: 0.091)
@@ -1067,6 +1111,9 @@ extension DeviceModel {
         // iPhone 14 Pro - 首款动态岛
         case .iPhone14Pro:
             .dynamicIsland(widthRatio: 0.321, heightRatio: 0.091)
+        // iPhone 16e - 刘海 (类似 iPhone 14)
+        case .iPhone16e:
+            .notch(widthRatio: 0.415, heightRatio: 0.087)
         // iPhone 14 - 小刘海 162pt×34pt / 390pt
         case .iPhone14:
             .notch(widthRatio: 0.415, heightRatio: 0.087)
@@ -1289,6 +1336,30 @@ extension DeviceModel {
                     .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
                 ]
             )
+        // iPhone Air - 超薄设计，操作按钮 + 音量按钮
+        case .iPhoneAir:
+            SideButtons(
+                left: [
+                    .init(type: .actionButton, topRatio: 0.205, heightRatio: 0.046, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.285, heightRatio: 0.075, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.380, heightRatio: 0.075, width: 3),
+                ],
+                right: [
+                    .init(type: .power, topRatio: 0.311, heightRatio: 0.118, width: 3),
+                ]
+            )
+        // iPhone 16e - 静音开关 + 音量按钮（类似 iPhone 14）
+        case .iPhone16e:
+            SideButtons(
+                left: [
+                    .init(type: .silentSwitch, topRatio: 0.195, heightRatio: 0.030, width: 3),
+                    .init(type: .volumeUp, topRatio: 0.270, heightRatio: 0.070, width: 3),
+                    .init(type: .volumeDown, topRatio: 0.360, heightRatio: 0.070, width: 3),
+                ],
+                right: [
+                    .init(type: .power, topRatio: 0.300, heightRatio: 0.110, width: 3),
+                ]
+            )
         // iPhone 15 Pro - 操作按钮替代静音开关
         case .iPhone15Pro:
             SideButtons(
@@ -1426,10 +1497,14 @@ extension DeviceModel {
             "iPhone 17 Pro"
         case .iPhone17:
             "iPhone 17"
+        case .iPhoneAir:
+            "iPhone Air"
         case .iPhone16Pro:
             "iPhone 16 Pro"
         case .iPhone16:
             "iPhone 16"
+        case .iPhone16e:
+            "iPhone 16e"
         case .iPhone15Pro:
             "iPhone 15 Pro"
         case .iPhone15:
@@ -1619,20 +1694,26 @@ extension DeviceModel {
         let minor = components.count > 1 ? Int(components[1]) ?? 0 : 0
 
         switch major {
-        // iPhone 18.x = iPhone 17 系列 (2025)
+        // iPhone 18.x = iPhone 17 系列 (2025) + iPhone Air
         case 18:
             switch minor {
             case 1, 2: // iPhone 17 Pro / Pro Max
                 return .iPhone17Pro
-            default: // iPhone 17 / Plus / Air
+            case 3: // iPhone 17
+                return .iPhone17
+            case 4: // iPhone Air (独立型号)
+                return .iPhoneAir
+            default:
                 return .iPhone17
             }
 
-        // iPhone 17.x = iPhone 16 系列 (2024)
+        // iPhone 17.x = iPhone 16 系列 (2024) + iPhone 16e (2025)
         case 17:
             switch minor {
             case 1, 2: // iPhone 16 Pro / Pro Max
                 return .iPhone16Pro
+            case 5: // iPhone 16e (刘海屏)
+                return .iPhone16e
             default: // iPhone 16 / Plus
                 return .iPhone16
             }
@@ -1646,15 +1727,15 @@ extension DeviceModel {
                 return .iPhone15
             }
 
-        // iPhone 15.x = iPhone 14 系列 (2022)
+        // iPhone 15.x = iPhone 14 Pro 系列 (2022) + iPhone 15 标准版 (2023)
         case 15:
             switch minor {
             case 2, 3: // iPhone 14 Pro / Pro Max
                 return .iPhone14Pro
-            case 4, 5: // iPhone 14 / Plus
-                return .iPhone14
+            case 4, 5: // iPhone 15 / Plus (动态岛)
+                return .iPhone15
             default:
-                return .iPhone14
+                return .iPhone15
             }
 
         // iPhone 14.x = iPhone 13 系列 (2021) + iPhone SE 3 + iPhone 14 标准版
@@ -1730,12 +1811,22 @@ extension DeviceModel {
     }
 
     private static func identifyiPhone(from name: String) -> DeviceModel {
+        // iPhone Air (独立型号，需优先判断)
+        if name.contains("iphone air") || name.contains("iphoneair") {
+            return .iPhoneAir
+        }
+
         // iPhone 17 系列
         if name.contains("iphone 17") || name.contains("iphone17") {
             if name.contains("pro") {
                 return .iPhone17Pro
             }
             return .iPhone17
+        }
+
+        // iPhone 16e (刘海屏，需优先于 iPhone 16 判断)
+        if name.contains("iphone 16e") || name.contains("iphone16e") {
+            return .iPhone16e
         }
 
         // iPhone 16 系列
