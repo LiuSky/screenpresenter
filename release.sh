@@ -251,49 +251,6 @@ gh release create "$VERSION" \
 log_success "GitHub Release 创建完成"
 
 # ============================================
-# 步骤 10: 更新 appcast.xml 的 description
-# ============================================
-log_step "从 GitHub Release 获取更新说明..."
-
-# 获取自动生成的 release notes
-RELEASE_NOTES=$(gh release view "$VERSION" --repo "$GITHUB_REPO" --json body -q '.body' 2>/dev/null || echo "")
-
-if [ -n "$RELEASE_NOTES" ]; then
-    # 将 Markdown 转换为 HTML 并更新到 appcast.xml
-    # 对特殊字符进行转义
-    ESCAPED_NOTES=$(echo "$RELEASE_NOTES" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-    
-    # 生成 HTML 格式的 description
-    HTML_DESCRIPTION="<h2>🚀 ScreenPresenter $VERSION</h2><pre>$ESCAPED_NOTES</pre>"
-    
-    # 使用 awk 更新 description（因为包含多行内容）
-    awk -v desc="$HTML_DESCRIPTION" '
-        /<description>/ { 
-            print "            <description>"
-            print "                <![CDATA["
-            print "                " desc
-            print "                ]]>"
-            print "            </description>"
-            # 跳过原有的 description 内容直到遇到 </description>
-            while (getline && !/\<\/description\>/) {}
-            next
-        }
-        { print }
-    ' "$APPCAST_PATH" > "${APPCAST_PATH}.tmp" && mv "${APPCAST_PATH}.tmp" "$APPCAST_PATH"
-    
-    log_success "appcast.xml description 已更新"
-    
-    # 重新更新 Gist（包含新的 description）
-    log_step "重新更新 Gist（包含更新说明）..."
-    gh gist edit "$GIST_ID" "$APPCAST_PATH" || {
-        log_warning "Gist 更新失败，请手动更新"
-    }
-    log_success "Gist 已更新"
-else
-    log_warning "未获取到 Release Notes，跳过 description 更新"
-fi
-
-# ============================================
 # 完成
 # ============================================
 echo ""
