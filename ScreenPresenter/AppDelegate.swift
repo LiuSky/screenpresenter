@@ -510,7 +510,7 @@ extension AppDelegate {
 
     /// 从系统日志收集应用日志
     private func collectSystemLogs() async throws -> String {
-        let bundleId = Bundle.main.bundleIdentifier ?? "com.webull.ScreenPresenter"
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.haptictide.ScreenPresenter"
         var allLogs = ""
 
         // 添加头部信息

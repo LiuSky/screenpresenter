@@ -88,7 +88,7 @@ final class AppLogger {
 
     // MARK: - Private Properties
 
-    private let subsystem = Bundle.main.bundleIdentifier ?? "com.webull.screenPresenter"
+    private let subsystem = Bundle.main.bundleIdentifier ?? "com.haptictide.ScreenPresenter"
 
     /// 缓存的 Logger 实例
     private var loggers: [LogCategory: Logger] = [:]
