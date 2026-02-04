@@ -371,24 +371,23 @@ final class VideoToolboxDecoder {
             return
         }
 
-        CVBufferRetain(imageBuffer)
+        guard let buffer = imageBuffer else { return }
+        let retainedBuffer = Unmanaged.passRetained(buffer)
 
         decodeQueue.async { [weak self] in
-            guard let self else {
-                CVBufferRelease(imageBuffer)
-                return
-            }
+            let buffer = retainedBuffer.takeUnretainedValue()
+            defer { retainedBuffer.release() }
+
+            guard let self else { return }
 
             let current = self.getCallbackState()
             guard current.enabled, current.token == state.token else {
-                CVBufferRelease(imageBuffer)
                 return
             }
 
             self.decodedFrameCount += 1
             self.decodedInPeriod += 1
-            self.onDecodedFrame?(imageBuffer)
-            CVBufferRelease(imageBuffer)
+            self.onDecodedFrame?(buffer)
         }
     }
 
