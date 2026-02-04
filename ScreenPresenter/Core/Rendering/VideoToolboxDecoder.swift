@@ -77,12 +77,22 @@ final class VideoToolboxDecoder {
         label: "com.screenPresenter.videoToolbox.decode",
         qos: .userInteractive
     )
+    private static let decodeQueueKey = DispatchSpecificKey<Void>()
 
     /// 状态锁
     private let stateLock = NSLock()
 
     /// 解码后的帧回调（在 decodeQueue 上调用）
     var onDecodedFrame: ((CVPixelBuffer) -> Void)?
+
+    /// 回调状态锁
+    private let callbackStateLock = NSLock()
+
+    /// 回调是否启用（用于停止期 fence）
+    private var callbacksEnabled = true
+
+    /// 回调代际令牌（用于丢弃停用前的回调）
+    private var callbackToken: UInt64 = 0
 
     /// 解码统计
     private(set) var decodedFrameCount = 0
@@ -139,6 +149,7 @@ final class VideoToolboxDecoder {
     /// - Parameter codecType: 编解码类型（kCMVideoCodecType_H264 或 kCMVideoCodecType_HEVC）
     init(codecType: CMVideoCodecType) {
         self.codecType = codecType
+        decodeQueue.setSpecific(key: Self.decodeQueueKey, value: ())
         AppLogger.capture.info("[VTDecoder] 初始化，编解码器: \(codecType == kCMVideoCodecType_H264 ? "H.264" : "H.265")")
     }
 
@@ -268,14 +279,31 @@ final class VideoToolboxDecoder {
 
     /// 刷新解码器（等待所有帧解码完成）
     func flush() {
-        decodeQueue.sync { [weak self] in
+        decodeQueueSync { [weak self] in
             guard let session = self?.decompressionSession else { return }
             VTDecompressionSessionWaitForAsynchronousFrames(session)
         }
     }
 
+    /// 启用解码回调（用于恢复捕获）
+    func activateCallbacks() {
+        setCallbacksEnabled(true)
+    }
+
+    /// 停止期 fence：禁用回调并等待队列清空
+    func stopAndDrain(clearCallback: Bool = false) {
+        setCallbacksEnabled(false)
+        if clearCallback {
+            onDecodedFrame = nil
+        }
+        flush()
+        // 确保 decodeQueue 中待执行任务已清空
+        decodeQueueSync { }
+    }
+
     /// 重置解码器
     func reset() {
+        stopAndDrain()
         invalidateSession()
         formatDescription = nil
         decodedFrameCount = 0
@@ -307,6 +335,63 @@ final class VideoToolboxDecoder {
         stateLock.unlock()
     }
 
+    private func setCallbacksEnabled(_ enabled: Bool) {
+        callbackStateLock.lock()
+        callbacksEnabled = enabled
+        callbackToken &+= 1
+        callbackStateLock.unlock()
+    }
+
+    private func getCallbackState() -> (enabled: Bool, token: UInt64) {
+        callbackStateLock.lock()
+        let state = (callbacksEnabled, callbackToken)
+        callbackStateLock.unlock()
+        return state
+    }
+
+    private func decodeQueueSync(_ block: () -> Void) {
+        if DispatchQueue.getSpecific(key: Self.decodeQueueKey) != nil {
+            block()
+        } else {
+            decodeQueue.sync(execute: block)
+        }
+    }
+
+    private func handleDecodedCallback(status: OSStatus, imageBuffer: CVImageBuffer?) {
+        let state = getCallbackState()
+        guard state.enabled else { return }
+
+        if status != noErr || imageBuffer == nil {
+            decodeQueue.async { [weak self] in
+                guard let self else { return }
+                let current = self.getCallbackState()
+                guard current.enabled, current.token == state.token else { return }
+                self.failedFrameCount += 1
+            }
+            return
+        }
+
+        CVBufferRetain(imageBuffer)
+
+        decodeQueue.async { [weak self] in
+            guard let self else {
+                CVBufferRelease(imageBuffer)
+                return
+            }
+
+            let current = self.getCallbackState()
+            guard current.enabled, current.token == state.token else {
+                CVBufferRelease(imageBuffer)
+                return
+            }
+
+            self.decodedFrameCount += 1
+            self.decodedInPeriod += 1
+            self.onDecodedFrame?(imageBuffer)
+            CVBufferRelease(imageBuffer)
+        }
+    }
+
     /// 创建解压缩会话
     private func createDecompressionSession(formatDescription: CMFormatDescription) throws {
         // 先销毁旧的会话
@@ -325,13 +410,7 @@ final class VideoToolboxDecoder {
 
                 let decoder = Unmanaged<VideoToolboxDecoder>.fromOpaque(refcon).takeUnretainedValue()
 
-                if status == noErr, let imageBuffer {
-                    decoder.decodedFrameCount += 1
-                    decoder.decodedInPeriod += 1
-                    decoder.onDecodedFrame?(imageBuffer)
-                } else {
-                    decoder.failedFrameCount += 1
-                }
+                decoder.handleDecodedCallback(status: status, imageBuffer: imageBuffer)
             },
             decompressionOutputRefCon: Unmanaged.passUnretained(self).toOpaque()
         )

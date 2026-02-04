@@ -222,8 +222,38 @@ class BaseDeviceSource: NSObject, DeviceSource {
 
     private(set) var state: DeviceSourceState = .idle
     private(set) var captureSize: CGSize = .zero
-    private(set) var frameRate: Double = 0
-    private(set) var latestFrame: CapturedFrame?
+
+    // 帧状态锁：保护 latestFrame / frameRate 等跨线程访问
+    private let frameStateLock = NSLock()
+    private var latestFrameStorage: CapturedFrame?
+    private var frameRateStorage: Double = 0
+    private var frameTimestamps: [CFAbsoluteTime] = []
+
+    private(set) var frameRate: Double {
+        get {
+            frameStateLock.lock()
+            defer { frameStateLock.unlock() }
+            return frameRateStorage
+        }
+        set {
+            frameStateLock.lock()
+            frameRateStorage = newValue
+            frameStateLock.unlock()
+        }
+    }
+
+    private(set) var latestFrame: CapturedFrame? {
+        get {
+            frameStateLock.lock()
+            defer { frameStateLock.unlock() }
+            return latestFrameStorage
+        }
+        set {
+            frameStateLock.lock()
+            latestFrameStorage = newValue
+            frameStateLock.unlock()
+        }
+    }
 
     /// 最新的 CVPixelBuffer（子类需要维护）
     var latestPixelBuffer: CVPixelBuffer? { nil }
@@ -286,24 +316,18 @@ class BaseDeviceSource: NSObject, DeviceSource {
     // MARK: - Frame Handling
 
     func emitFrame(_ frame: CapturedFrame) {
-        latestFrame = frame
-        frameContinuation?.yield(frame)
-
-        // 更新帧率统计
-        updateFrameRateStatistics()
-    }
-
-    private var frameTimestamps: [CFAbsoluteTime] = []
-
-    private func updateFrameRateStatistics() {
         let now = CFAbsoluteTimeGetCurrent()
-        frameTimestamps.append(now)
 
+        frameStateLock.lock()
+        latestFrameStorage = frame
+        frameTimestamps.append(now)
         // 保留最近1秒的帧时间戳
         frameTimestamps = frameTimestamps.filter { now - $0 < 1.0 }
-
         // 计算帧率
-        frameRate = Double(frameTimestamps.count)
+        frameRateStorage = Double(frameTimestamps.count)
+        frameStateLock.unlock()
+
+        frameContinuation?.yield(frame)
     }
 
     // MARK: - Default Implementations (子类需要覆盖)

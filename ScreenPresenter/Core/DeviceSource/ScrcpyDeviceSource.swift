@@ -261,10 +261,19 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     private let framePipeline = FramePipeline()
 
     /// 最新的 CVPixelBuffer 存储（兼容旧接口）
-    private var _latestPixelBuffer: CVPixelBuffer?
+    private let latestPixelBufferLock = NSLock()
+    private var latestPixelBufferStorage: CVPixelBuffer?
 
     /// 最新的 CVPixelBuffer（供渲染使用）
-    override var latestPixelBuffer: CVPixelBuffer? { _latestPixelBuffer }
+    override var latestPixelBuffer: CVPixelBuffer? {
+        latestPixelBufferLock.lock()
+        defer { latestPixelBufferLock.unlock() }
+        return latestPixelBufferStorage
+    }
+
+    /// 捕获回调开关（避免 stop/cleanup 后仍处理解码回调）
+    private let captureGateLock = NSLock()
+    private var isCaptureActive = false
 
     /// 帧回调（通过 FramePipeline 分发，已实现事件合并）
     var onFrame: ((CVPixelBuffer) -> Void)? {
@@ -272,8 +281,8 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             // 将回调注册到帧管道
             if let callback = onFrame {
                 framePipeline.setFrameHandler { [weak self] pixelBuffer in
-                    // 更新最新帧引用
-                    self?._latestPixelBuffer = pixelBuffer
+                    // 更新最新帧引用（线程安全）
+                    self?.setLatestPixelBuffer(pixelBuffer)
                     // 调用外部回调
                     callback(pixelBuffer)
                 }
@@ -318,6 +327,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     }
 
     deinit {
+        deactivateCaptureCallbacks()
         monitorTask?.cancel()
     }
 
@@ -367,9 +377,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
         // 创建 VideoToolbox 解码器
         decoder = VideoToolboxDecoder(codecType: configuration.videoCodec.fourCC)
-        decoder?.onDecodedFrame = { [weak self] pixelBuffer in
-            self?.handleDecodedFrame(pixelBuffer)
-        }
+        attachDecoderCallback()
 
         // 获取 scrcpy 版本
         let scrcpyVersion = getScrcpyVersion()
@@ -407,7 +415,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         socketAcceptor = nil
         streamParser = nil
         decoder = nil
-        _latestPixelBuffer = nil
+        setLatestPixelBuffer(nil)
 
         updateState(.disconnected)
     }
@@ -426,6 +434,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
             guard adbService != nil else {
                 throw DeviceSourceError.captureStartFailed("ADB 服务未初始化")
             }
+
+            // 重新挂载解码回调（stop/cleanup 会清空）
+            attachDecoderCallback()
 
             // 0. 唤醒设备（如果息屏）
             await wakeUpDeviceIfNeeded()
@@ -483,6 +494,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
 
             // 6. 提前设置状态为 capturing
             updateState(.capturing)
+            setCaptureActive(true)
 
             // 7. 启动 scrcpy-server
             serverProcess = try await launcher.startServer(configuration: configuration)
@@ -617,6 +629,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     private func cleanupAfterError() async {
         AppLogger.capture.info("[ScrcpyDeviceSource] 错误后清理资源...")
 
+        // 先停掉回调，避免清理过程中仍处理帧
+        deactivateCaptureCallbacks()
+
         // 停止帧管道
         stopPipelineStats()
         framePipeline.stop()
@@ -666,6 +681,9 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     override func stopCapture() async {
         AppLogger.capture.info("停止捕获: \(displayName)")
 
+        // 先停掉回调，避免清理过程中仍处理帧
+        deactivateCaptureCallbacks()
+
         // 0. 停止帧管道统计任务
         stopPipelineStats()
 
@@ -703,6 +721,22 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         }
 
         AppLogger.capture.info("捕获已停止: \(displayName)")
+    }
+
+    override func pauseCapture() {
+        super.pauseCapture()
+        // 暂停时不再处理解码回调
+        if state == .paused {
+            setCaptureActive(false)
+        }
+    }
+
+    override func resumeCapture() {
+        super.resumeCapture()
+        // 恢复时重新允许处理解码回调
+        if state == .capturing {
+            setCaptureActive(true)
+        }
     }
 
     // MARK: - 数据处理
@@ -780,6 +814,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
                 guard let vps = parser.vps, let sps = parser.sps, let pps = parser.pps else { return }
                 try decoder.initializeH265(vps: vps, sps: sps, pps: pps)
             }
+            decoder.activateCallbacks()
             AppLogger.capture.info("✅ 解码器初始化成功（可能是旋转后重建）")
         } catch {
             AppLogger.capture.error("解码器初始化失败: \(error.localizedDescription)")
@@ -810,7 +845,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
     /// 处理解码后的帧
     /// 使用双帧缓冲设计（与 scrcpy frame_buffer.c 一致）
     private func handleDecodedFrame(_ pixelBuffer: CVPixelBuffer) {
-        guard state == .capturing else { return }
+        guard canHandleFrames() else { return }
 
         // 计算端到端延迟（从数据接收到解码完成）
         let decodeCompleteTime = CFAbsoluteTimeGetCurrent()
@@ -832,7 +867,7 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         }
 
         // 更新最新帧（兼容旧接口）
-        _latestPixelBuffer = pixelBuffer
+        setLatestPixelBuffer(pixelBuffer)
 
         // 更新捕获尺寸（这会触发 UI 刷新，包括 bezel 更新）
         let width = CVPixelBufferGetWidth(pixelBuffer)
@@ -865,6 +900,40 @@ final class ScrcpyDeviceSource: BaseDeviceSource {
         // - 主线程消费时总是获取最新帧
         // 这避免了主线程任务堆积的问题
         framePipeline.pushFrame(pixelBuffer)
+    }
+
+    // MARK: - 回调与状态保护
+
+    private func setLatestPixelBuffer(_ pixelBuffer: CVPixelBuffer?) {
+        latestPixelBufferLock.lock()
+        latestPixelBufferStorage = pixelBuffer
+        latestPixelBufferLock.unlock()
+    }
+
+    private func setCaptureActive(_ active: Bool) {
+        captureGateLock.lock()
+        isCaptureActive = active
+        captureGateLock.unlock()
+    }
+
+    private func canHandleFrames() -> Bool {
+        captureGateLock.lock()
+        let active = isCaptureActive
+        captureGateLock.unlock()
+        return active
+    }
+
+    private func attachDecoderCallback() {
+        decoder?.activateCallbacks()
+        decoder?.onDecodedFrame = { [weak self] pixelBuffer in
+            self?.handleDecodedFrame(pixelBuffer)
+        }
+    }
+
+    private func deactivateCaptureCallbacks() {
+        setCaptureActive(false)
+        decoder?.stopAndDrain(clearCallback: true)
+        setLatestPixelBuffer(nil)
     }
 
     // MARK: - 辅助方法
