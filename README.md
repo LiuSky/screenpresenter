@@ -9,6 +9,7 @@ macOS 设备投屏工具，支持同时展示 iOS 和 Android 设备屏幕，具
 - 🖥️ **Metal 渲染**: CVDisplayLink 驱动的 60fps 高性能渲染
 - 🔄 **双设备展示**: 支持同时展示两台设备（iOS + Android）
 - 📐 **仿真边框**: 根据真实设备型号绘制设备外观（动态岛/刘海/打孔屏/侧边按键）
+- 📝 **Markdown 编辑器**: 内嵌多标签页编辑器，支持语法高亮、10+ 主题、查找替换
 - 🎛️ **纯 AppKit**: 零 SwiftUI 依赖，最大化系统兼容性
 - 🌐 **多语言**: 中英文双语支持
 
@@ -30,6 +31,7 @@ macOS 设备投屏工具，支持同时展示 iOS 和 Android 设备屏幕，具
 | iOS 捕获 | CoreMediaIO + AVFoundation |
 | Android 捕获 | scrcpy-server + Socket + VideoToolbox |
 | 设备识别 | FBDeviceControl (可选增强) |
+| Markdown 编辑 | WKWebView + CodeMirror |
 
 ### 模块结构
 
@@ -70,14 +72,23 @@ ScreenPresenter/
 ├── Views/
 │   ├── MainViewController.swift          # 主视图控制器
 │   ├── PreferencesWindowController.swift # 偏好设置窗口
-│   └── Components/
-│       ├── PreviewContainerView.swift    # 预览容器（布局动画）
-│       ├── DevicePanelView.swift         # 设备面板（边框+渲染+状态）
-│       ├── DeviceBezelView.swift         # 设备边框绘制
-│       ├── DeviceModel.swift             # 设备型号定义 (50+ 型号)
-│       ├── DeviceStatusView.swift        # 设备状态视图
-│       ├── DeviceCaptureInfoView.swift   # 捕获信息覆盖层
-│       └── ToastView.swift               # Toast 通知
+│   ├── Components/
+│   │   ├── PreviewContainerView.swift    # 预览容器（布局动画）
+│   │   ├── DevicePanelView.swift         # 设备面板（边框+渲染+状态）
+│   │   ├── DeviceBezelView.swift         # 设备边框绘制
+│   │   ├── DeviceModel.swift             # 设备型号定义 (50+ 型号)
+│   │   └── ToastView.swift               # Toast 通知
+│   └── Showcase/                         # 设备展示模式
+├── MarkdownEditor/                       # Markdown 编辑器 Swift Package
+│   └── Sources/MarkdownEditor/
+│       ├── Editor/                       # 编辑器核心（WKWebView + CodeMirror）
+│       ├── Integration/                  # 宿主应用集成接口
+│       ├── Panels/                       # 查找 / 替换面板
+│       └── Main/                         # 主题、配置、热键
+├── MarkdownKit/                          # 编辑器桥接层
+├── MarkdownCore/                         # 编辑器核心类型
+├── MarkdownPreview/                      # Markdown 预览
+├── FBDeviceControlKit/                   # 设备信息增强层
 └── Resources/
     ├── Tools/
     │   ├── scrcpy                        # Android 投屏客户端
@@ -248,7 +259,22 @@ if currentPending > maxPendingFrames, !nalUnit.isKeyFrame {
 | 侧边按键 | 静音开关 / 音量键 / 电源键 |
 | 连续曲率圆角 | `.continuous` 圆角风格 |
 
-## 🔧 用户设置
+## � Markdown 编辑器
+
+内嵌的 Markdown 编辑器，用于在投屏演示过程中随时记录笔记。
+
+### 主要功能
+
+- **多标签页**: 同时编辑多个文档，标签栏支持拖拽排序和右键菜单
+- **语法高亮**: 基于 CodeMirror 6，支持 Markdown 及 30+ 编程语言
+- **丰富主题**: GitHub Light/Dark、Xcode Light/Dark、Dracula、Cobalt 等 10+ 主题
+- **查找替换**: ⌘F 查找 / ⌘⇧F 替换，支持正则表达式
+- **格式工具栏**: 标题、粗体、斜体、链接、代码块等快捷操作
+- **文件操作**: 新建、打开、保存、另存为，支持 .md / .markdown / .txt
+- **灵活布局**: 编辑器位置可配置为左侧、右侧或居中
+- **主题独立**: 编辑器主题不影响主窗口外观
+
+## �🔧 用户设置
 
 ### 通用设置
 - 布局模式（双设备 / 单设备）
@@ -256,6 +282,11 @@ if currentPending > maxPendingFrames, !nalUnit.isKeyFrame {
 - 自动重连开关
 - 背景透明度
 - 显示设备边框
+
+### Markdown 编辑器设置
+- 编辑器主题（GitHub Light/Dark、Xcode、Dracula、Cobalt 等）
+- 编辑器位置（左侧 / 右侧 / 居中）
+- 显示/隐藏编辑器
 
 ### Android 设置
 - 码率调节
