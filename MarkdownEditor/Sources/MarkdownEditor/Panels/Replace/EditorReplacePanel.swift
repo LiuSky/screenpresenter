@@ -99,6 +99,9 @@ extension EditorReplacePanel: NSTextFieldDelegate {
         case (#selector(insertNewline(_:)), true, _):
             delegate?.editorReplacePanelDidClickReplaceNext(self)
             return true
+        case (#selector(selectAll(_:)), _, _):
+            textView.selectAll(self)
+            return true
         default:
             return false
         }

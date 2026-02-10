@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
     private var preventSleepMenuItem: NSMenuItem?
     private var markdownMenu: NSMenu?
     private var markdownToggleMenuItem: NSMenuItem?
+    private var markdownPreviewModeMenuItem: NSMenuItem?
     private var recentFilesMenu: NSMenu?
     private var markdownThemeMenu: NSMenu?
     private let repositoryHomepageURL = URL(string: "https://github.com/HapticTide/ScreenPresenter")!
@@ -286,10 +287,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         isCaptureQuitConfirmationPresented = true
 
         let alert = NSAlert()
-        alert.messageText = L10n.alert.quitConfirmTitle
+        alert.messageText = L10n.alert.quitConfirmMessage
         let sessionCount = max(activeCaptureSessionCount, 1)
         alert.informativeText = [
-            L10n.alert.quitConfirmMessage,
             L10n.alert.quitConfirmImpactMessage(sessionCount),
             L10n.alert.quitConfirmShortcutHint,
         ].joined(separator: "\n\n")
@@ -489,6 +489,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
 
         // Markdown 菜单
         let mdMenu = NSMenu(title: L10n.markdown.menu)
+        markdownMenu = mdMenu
+        mdMenu.delegate = self
         let mdMenuItem = NSMenuItem()
         mdMenuItem.submenu = mdMenu
         markdownMenu = mdMenu
@@ -582,6 +584,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         zoomOutItem.image = symbolImage("minus.magnifyingglass")
 
         mdMenu.addItem(NSMenuItem.separator())
+        setupEditSubmenu(in: mdMenu)
+        mdMenu.addItem(NSMenuItem.separator())
 
         // 格式子菜单
         setupFormatSubmenu(in: mdMenu)
@@ -666,11 +670,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         let toggleItem = mdMenu.addItem(
             withTitle: L10n.markdown.toggle,
             action: #selector(toggleMarkdownEditor(_:)),
-            keyEquivalent: "e"
+            keyEquivalent: "m"
         )
-        toggleItem.keyEquivalentModifierMask = [.command]
+        toggleItem.keyEquivalentModifierMask = [.command, .shift]
         toggleItem.image = symbolImage("sidebar.right")
         markdownToggleMenuItem = toggleItem
+
+        // 预览/编辑模式切换
+        let previewModeItem = mdMenu.addItem(
+            withTitle: L10n.markdown.preview,
+            action: #selector(toggleMarkdownPreviewMode(_:)),
+            keyEquivalent: "v"
+        )
+        previewModeItem.keyEquivalentModifierMask = [.command, .shift]
+        previewModeItem.target = self
+        markdownPreviewModeMenuItem = previewModeItem
+        updateMarkdownPreviewModeMenuItem()
 
         // 关闭当前标签页
         let closeTabItem = mdMenu.addItem(
@@ -732,6 +747,147 @@ final class AppDelegate: NSObject, NSApplicationDelegate, FormatMenuProvider {
         NSApp.helpMenu = helpMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    /// 设置编辑子菜单（在 Markdown 菜单内）
+    private func setupEditSubmenu(in parentMenu: NSMenu) {
+        let editMenu = NSMenu(title: L10n.menu.edit)
+        let editMenuItem = parentMenu.addItem(
+            withTitle: L10n.menu.edit,
+            action: nil,
+            keyEquivalent: ""
+        )
+        editMenuItem.submenu = editMenu
+        editMenuItem.image = symbolImage("pencil")
+
+        let undoItem = editMenu.addItem(
+            withTitle: L10n.menu.undo,
+            action: #selector(UndoManager.undo),
+            keyEquivalent: "z"
+        )
+        undoItem.keyEquivalentModifierMask = [.command]
+        undoItem.target = nil
+
+        let redoItem = editMenu.addItem(
+            withTitle: L10n.menu.redo,
+            action: #selector(UndoManager.redo),
+            keyEquivalent: "z"
+        )
+        redoItem.keyEquivalentModifierMask = [.command, .shift]
+        redoItem.target = nil
+
+        editMenu.addItem(NSMenuItem.separator())
+
+        let cutItem = editMenu.addItem(
+            withTitle: L10n.menu.cut,
+            action: #selector(NSText.cut(_:)),
+            keyEquivalent: "x"
+        )
+        cutItem.keyEquivalentModifierMask = [.command]
+        cutItem.target = nil
+
+        let copyItem = editMenu.addItem(
+            withTitle: L10n.menu.copy,
+            action: #selector(NSText.copy(_:)),
+            keyEquivalent: "c"
+        )
+        copyItem.keyEquivalentModifierMask = [.command]
+        copyItem.target = nil
+
+        let pasteItem = editMenu.addItem(
+            withTitle: L10n.menu.paste,
+            action: #selector(NSText.paste(_:)),
+            keyEquivalent: "v"
+        )
+        pasteItem.keyEquivalentModifierMask = [.command]
+        pasteItem.target = nil
+
+        let selectAllItem = editMenu.addItem(
+            withTitle: L10n.menu.selectAll,
+            action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a"
+        )
+        selectAllItem.keyEquivalentModifierMask = [.command]
+        selectAllItem.target = nil
+
+        editMenu.addItem(NSMenuItem.separator())
+
+        let findMenu = NSMenu(title: L10n.menu.find)
+        let findMenuItem = editMenu.addItem(
+            withTitle: L10n.menu.find,
+            action: nil,
+            keyEquivalent: ""
+        )
+        findMenuItem.submenu = findMenu
+        findMenuItem.image = symbolImage("magnifyingglass")
+
+        let findItem = findMenu.addItem(
+            withTitle: "\(L10n.menu.find)...",
+            action: #selector(performFindPanelAction(_:)),
+            keyEquivalent: "f"
+        )
+        findItem.keyEquivalentModifierMask = [.command]
+        findItem.tag = NSTextFinder.Action.showFindInterface.rawValue
+        findItem.target = self
+
+        let findAndReplaceItem = findMenu.addItem(
+            withTitle: L10n.menu.findAndReplace,
+            action: #selector(performFindAndReplace(_:)),
+            keyEquivalent: "f"
+        )
+        findAndReplaceItem.keyEquivalentModifierMask = [.command, .option]
+        findAndReplaceItem.target = self
+
+        let findNextItem = findMenu.addItem(
+            withTitle: L10n.menu.findNext,
+            action: #selector(performFindPanelAction(_:)),
+            keyEquivalent: "g"
+        )
+        findNextItem.keyEquivalentModifierMask = [.command]
+        findNextItem.tag = NSTextFinder.Action.nextMatch.rawValue
+        findNextItem.target = self
+
+        let findPreviousItem = findMenu.addItem(
+            withTitle: L10n.menu.findPrevious,
+            action: #selector(performFindPanelAction(_:)),
+            keyEquivalent: "g"
+        )
+        findPreviousItem.keyEquivalentModifierMask = [.command, .shift]
+        findPreviousItem.tag = NSTextFinder.Action.previousMatch.rawValue
+        findPreviousItem.target = self
+
+        let useSelectionForFindItem = findMenu.addItem(
+            withTitle: L10n.menu.useSelectionForFind,
+            action: #selector(performFindPanelAction(_:)),
+            keyEquivalent: "e"
+        )
+        useSelectionForFindItem.keyEquivalentModifierMask = [.command]
+        useSelectionForFindItem.tag = NSTextFinder.Action.setSearchString.rawValue
+        useSelectionForFindItem.target = self
+
+        let selectAllOccurrencesItem = findMenu.addItem(
+            withTitle: L10n.menu.selectAllOccurrences,
+            action: #selector(selectAllOccurrences(_:)),
+            keyEquivalent: "e"
+        )
+        selectAllOccurrencesItem.keyEquivalentModifierMask = [.command, .option]
+        selectAllOccurrencesItem.target = self
+
+        let selectNextOccurrenceItem = findMenu.addItem(
+            withTitle: L10n.menu.selectNextOccurrence,
+            action: #selector(selectNextOccurrence(_:)),
+            keyEquivalent: "d"
+        )
+        selectNextOccurrenceItem.keyEquivalentModifierMask = [.command]
+        selectNextOccurrenceItem.target = self
+
+        let jumpToSelectionItem = findMenu.addItem(
+            withTitle: L10n.menu.jumpToSelection,
+            action: #selector(scrollToSelection(_:)),
+            keyEquivalent: "j"
+        )
+        jumpToSelectionItem.keyEquivalentModifierMask = [.command]
+        jumpToSelectionItem.target = self
     }
 
     /// 设置格式子菜单（在 Markdown 菜单内）
@@ -1252,6 +1408,12 @@ extension AppDelegate {
         updateMarkdownToolbarAndMenu()
     }
 
+    @IBAction func toggleMarkdownPreviewMode(_ sender: Any?) {
+        guard mainViewController?.canToggleMarkdownPreviewMode == true else { return }
+        mainViewController?.toggleMarkdownPreviewMode()
+        updateMarkdownPreviewModeMenuItem()
+    }
+
     @IBAction func openMarkdownFile(_ sender: Any?) {
         mainViewController?.openMarkdownFile()
     }
@@ -1362,6 +1524,14 @@ extension AppDelegate {
         }
         // 更新菜单项标题
         markdownToggleMenuItem?.title = isVisible ? L10n.markdown.toggle : L10n.markdown.toggle
+        updateMarkdownPreviewModeMenuItem()
+    }
+
+    private func updateMarkdownPreviewModeMenuItem() {
+        guard let menuItem = markdownPreviewModeMenuItem else { return }
+        let isPreview = mainViewController?.isMarkdownPreviewMode ?? false
+        menuItem.title = isPreview ? L10n.markdown.edit : L10n.markdown.preview
+        menuItem.image = symbolImage(isPreview ? "pencil" : "eye")
     }
 
     private func updateMarkdownToggleToolbarItemImage(_ item: NSToolbarItem) {
@@ -1400,8 +1570,13 @@ extension AppDelegate {
 
 extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
-        guard menu === recentFilesMenu else { return }
-        updateRecentFilesMenu()
+        if menu === recentFilesMenu {
+            updateRecentFilesMenu()
+        }
+
+        if menu === markdownMenu {
+            updateMarkdownPreviewModeMenuItem()
+        }
     }
 }
 
@@ -1588,6 +1763,26 @@ extension AppDelegate: NSToolbarDelegate {
         mainViewController?.performTextFinderAction(action)
     }
 
+    @objc
+    private func performFindAndReplace(_ sender: Any?) {
+        mainViewController?.performFindAndReplace()
+    }
+
+    @objc
+    private func selectAllOccurrences(_ sender: Any?) {
+        mainViewController?.selectAllOccurrencesInMarkdownEditor()
+    }
+
+    @objc
+    private func selectNextOccurrence(_ sender: Any?) {
+        mainViewController?.selectNextOccurrenceInMarkdownEditor()
+    }
+
+    @objc
+    private func scrollToSelection(_ sender: Any?) {
+        mainViewController?.scrollToSelectionInMarkdownEditor()
+    }
+
     // MARK: - 格式操作
 
     @objc
@@ -1659,6 +1854,15 @@ extension AppDelegate: NSToolbarDelegate {
 // MARK: - NSMenuItemValidation
 
 extension AppDelegate: NSMenuItemValidation {
+    /// 文本查找操作
+    private static let textFinderActions: Set<Selector> = [
+        #selector(performFindPanelAction(_:)),
+        #selector(performFindAndReplace(_:)),
+        #selector(selectAllOccurrences(_:)),
+        #selector(selectNextOccurrence(_:)),
+        #selector(scrollToSelection(_:)),
+    ]
+
     /// 格式化操作 - 预览模式下应禁用
     private static let formatActions: Set<Selector> = [
         #selector(toggleBold(_:)),
@@ -1679,6 +1883,10 @@ extension AppDelegate: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard let action = menuItem.action else { return true }
 
+        if Self.textFinderActions.contains(action) {
+            return mainViewController?.canToggleMarkdownPreviewMode == true
+        }
+
         // 检查是否为格式化操作且当前处于预览模式
         if Self.formatActions.contains(action) {
             // 获取当前活跃的编辑器的预览模式状态
@@ -1690,6 +1898,11 @@ extension AppDelegate: NSMenuItemValidation {
 
         if action == #selector(closeCurrentMarkdownTab(_:)) {
             return mainViewController?.isMarkdownEditorVisible == true
+        }
+
+        if action == #selector(toggleMarkdownPreviewMode(_:)) {
+            updateMarkdownPreviewModeMenuItem()
+            return mainViewController?.canToggleMarkdownPreviewMode == true
         }
 
         return true

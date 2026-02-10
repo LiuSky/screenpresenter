@@ -173,7 +173,6 @@ enum L10n {
     enum alert {
         static var quit: String { "alert.quit".localized }
         static var cancel: String { "alert.cancel".localized }
-        static var quitConfirmTitle: String { "alert.quitConfirmTitle".localized }
         static var quitConfirmMessage: String { "alert.quitConfirmMessage".localized }
         static func quitConfirmImpactMessage(_ count: Int) -> String { "alert.quitConfirmImpactMessage".localized(count) }
         static var quitConfirmShortcutHint: String { "alert.quitConfirmShortcutHint".localized }
@@ -219,6 +218,9 @@ enum L10n {
         static var findNext: String { "menu.findNext".localized }
         static var findPrevious: String { "menu.findPrevious".localized }
         static var useSelectionForFind: String { "menu.useSelectionForFind".localized }
+        static var selectAllOccurrences: String { "menu.selectAllOccurrences".localized }
+        static var selectNextOccurrence: String { "menu.selectNextOccurrence".localized }
+        static var jumpToSelection: String { "menu.jumpToSelection".localized }
         // 格式菜单
         static var format: String { "menu.format".localized }
         static var bold: String { "menu.bold".localized }
@@ -380,7 +382,7 @@ enum L10n {
         enum audioPref {
             static var enableCapture: String { "prefs.audio.enableCapture".localized }
             static var volume: String { "prefs.audio.volume".localized }
-            static var restartRequiredNote: String { "prefs.audio.restartRequiredNote".localized }
+            static var enableCaptureRestartHint: String { "prefs.audio.enableCaptureRestartHint".localized }
             static var iosNote: String { "prefs.audio.iosNote".localized }
             static var androidNote: String { "prefs.audio.androidNote".localized }
             static var codec: String { "prefs.audio.codec".localized }
@@ -740,6 +742,7 @@ enum L10n {
         static var statistics: String { "menu.markdownStatistics".localized }
         static var fileVersion: String { "menu.markdownFileVersion".localized }
         static var preview: String { "menu.markdownPreview".localized }
+        static var edit: String { "menu.markdownEdit".localized }
         static var positionCenter: String { "markdown.positionCenter".localized }
         static var positionLeft: String { "markdown.positionLeft".localized }
         static var positionRight: String { "markdown.positionRight".localized }

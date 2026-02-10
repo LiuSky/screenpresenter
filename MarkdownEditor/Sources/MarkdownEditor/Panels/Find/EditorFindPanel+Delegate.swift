@@ -27,6 +27,9 @@ extension EditorFindPanel: NSSearchFieldDelegate {
                 delegate?.editorFindPanelDidClickNext(self)
             }
             return true
+        case (#selector(selectAll(_:)), _, _):
+            textView.selectAll(self)
+            return true
         case (#selector(cancelOperation(_:)), _, _):
             delegate?.editorFindPanel(self, modeDidChange: .hidden)
             return true

@@ -270,6 +270,11 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
     /// 是否显示 Markdown 编辑器
     private(set) var isMarkdownEditorVisible: Bool = false
 
+    /// 当前激活标签页是否处于预览模式
+    var isCurrentMarkdownTabPreviewMode: Bool {
+        currentMarkdownTab()?.editor.isPreviewMode ?? false
+    }
+
     /// Markdown 编辑器位置
     private(set) var markdownEditorPosition: MarkdownEditorPosition = UserPreferences.shared.markdownEditorPosition
 
@@ -1363,6 +1368,13 @@ final class PreviewContainerView: NSView, NSTabViewDelegate {
     /// Markdown 缩小
     func zoomOutMarkdownEditor() {
         currentMarkdownTab()?.editor.zoomOut()
+    }
+
+    /// 切换当前标签页的预览模式
+    func toggleMarkdownPreviewMode() {
+        guard let editor = currentMarkdownTab()?.editor else { return }
+        editor.togglePreview()
+        updatePreviewToggleButtonIcon()
     }
 
     /// 恢复编辑器可见性状态（应用启动时调用）

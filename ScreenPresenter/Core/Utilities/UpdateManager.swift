@@ -5,7 +5,7 @@
 //  Created by Sun on 2026/1/6.
 //
 //  自动更新管理器
-//  基于 Sparkle 框架，支持 GitHub 私有仓库分发
+//  基于 Sparkle 框架，使用仓库内 appcast + GitHub Release 公网分发
 //
 
 import Foundation
@@ -14,7 +14,7 @@ import Sparkle
 // MARK: - 更新管理器
 
 /// 自动更新管理器
-/// 封装 Sparkle 更新逻辑，支持私有仓库 Token 认证
+/// 封装 Sparkle 更新逻辑，使用公开 appcast 与 Release 下载地址
 final class UpdateManager: NSObject {
 
     // MARK: - Singleton
@@ -44,7 +44,7 @@ final class UpdateManager: NSObject {
 
         // 创建 Sparkle 更新控制器
         // startingUpdater: true 表示立即启动后台更新检查
-        // updaterDelegate: self 用于自定义行为（如私有仓库认证）
+        // updaterDelegate: self 用于保留扩展点（如 channel 控制）
         // userDriverDelegate: nil 使用默认 UI
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
@@ -102,26 +102,9 @@ final class UpdateManager: NSObject {
 
 extension UpdateManager: SPUUpdaterDelegate {
 
-    /// 提供自定义的 appcast 数据
-    /// 由于私有仓库的 raw URL 需要认证，我们手动获取 appcast 内容
+    /// 保持默认安全策略，不允许非 HTTPS 更新
     func updater(_ updater: SPUUpdater, shouldAllowInsecureConnectionFor update: SUAppcastItem) -> Bool {
-        // 允许 HTTPS 连接（GitHub 都是 HTTPS）
         return false
-    }
-
-    /// 自定义下载请求（用于私有仓库 Token 认证下载 Release Assets）
-    func updater(
-        _ updater: SPUUpdater,
-        willDownloadUpdate item: SUAppcastItem,
-        with request: NSMutableURLRequest
-    ) {
-        // 如果配置了 GitHub Token，添加认证头
-        if let token = githubAccessToken, !token.isEmpty {
-            // GitHub Release Assets 需要 Accept 头指定媒体类型
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
-            AppLogger.app.debug("🔐 已为更新下载添加 GitHub Token 认证")
-        }
     }
 
     /// 允许的 channels（可用于区分 stable/beta）
@@ -136,52 +119,5 @@ extension UpdateManager: SPUUpdaterDelegate {
         // 返回 nil 使用 Info.plist 中的 SUFeedURL
         // 也可以在这里动态返回不同的 URL
         return nil
-    }
-
-    // MARK: - Private Helpers
-
-    /// 从配置或环境变量获取 GitHub Access Token
-    private var githubAccessToken: String? {
-        // 优先级：
-        // 1. UserDefaults 存储的 token
-        // 2. Secrets.swift 中的硬编码 token（本地配置）
-        // 3. 环境变量
-
-        if let token = UserDefaults.standard.string(forKey: "GitHubAccessToken"), !token.isEmpty {
-            return token
-        }
-
-        // 使用 Secrets.swift 中的 token（不会提交到 Git）
-        if !Secrets.githubToken.isEmpty {
-            return Secrets.githubToken
-        }
-
-        if let token = ProcessInfo.processInfo.environment["GITHUB_TOKEN"], !token.isEmpty {
-            return token
-        }
-
-        return nil
-    }
-}
-
-// MARK: - Token 配置
-
-extension UpdateManager {
-
-    /// 设置 GitHub Access Token（用于私有仓库）
-    /// - Parameter token: Personal Access Token
-    func setGitHubToken(_ token: String?) {
-        if let token = token, !token.isEmpty {
-            UserDefaults.standard.set(token, forKey: "GitHubAccessToken")
-            AppLogger.app.info("✅ GitHub Token 已保存")
-        } else {
-            UserDefaults.standard.removeObject(forKey: "GitHubAccessToken")
-            AppLogger.app.info("🗑️ GitHub Token 已清除")
-        }
-    }
-
-    /// 检查是否已配置 Token
-    var hasGitHubToken: Bool {
-        githubAccessToken != nil
     }
 }

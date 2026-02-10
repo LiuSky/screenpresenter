@@ -974,17 +974,6 @@ final class PreferencesViewController: NSViewController {
         // 音频设置组（包含 iOS 和 Android）
         let audioGroup = createSettingsGroup(title: L10n.prefs.section.audio, icon: "speaker.wave.2.fill")
 
-        let audioRestartRequiredNote = NSTextField(labelWithString: L10n.prefs.audioPref.restartRequiredNote)
-        audioRestartRequiredNote.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        audioRestartRequiredNote.textColor = NSColor.systemYellow
-        audioRestartRequiredNote.maximumNumberOfLines = 0
-        audioRestartRequiredNote.lineBreakMode = .byWordWrapping
-        let audioRestartRequiredNoteContainer = PaddingView(
-            contentView: audioRestartRequiredNote,
-            insets: NSEdgeInsets(top: 0, left: 0, bottom: LayoutMetrics.rowVerticalPadding, right: 0)
-        )
-        addGroupRow(audioGroup, audioRestartRequiredNoteContainer, addDivider: false)
-
         // iOS 子标题
         let iosSubtitle = NSTextField(labelWithString: "iOS")
         iosSubtitle.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
@@ -996,8 +985,7 @@ final class PreferencesViewController: NSViewController {
         addGroupRow(audioGroup, iosSubtitleContainer, addDivider: false)
 
         // iOS 启用音频捕获
-        addGroupRow(audioGroup, createCheckboxRow(
-            label: L10n.prefs.audioPref.enableCapture,
+        addGroupRow(audioGroup, createAudioEnableCaptureCheckboxRow(
             isOn: UserPreferences.shared.iosAudioEnabled,
             action: #selector(iosAudioEnabledChanged(_:))
         ) { checkbox in
@@ -1053,8 +1041,7 @@ final class PreferencesViewController: NSViewController {
         addGroupRow(audioGroup, androidSubtitleContainer)
 
         // Android 启用音频捕获
-        addGroupRow(audioGroup, createCheckboxRow(
-            label: L10n.prefs.audioPref.enableCapture,
+        addGroupRow(audioGroup, createAudioEnableCaptureCheckboxRow(
             isOn: UserPreferences.shared.androidAudioEnabled,
             action: #selector(androidAudioEnabledChanged(_:))
         ) { checkbox in
@@ -1512,6 +1499,47 @@ final class PreferencesViewController: NSViewController {
                 return checkbox
             }
         }
+    }
+
+    private func createAudioEnableCaptureCheckboxRow(
+        isOn: Bool,
+        action: Selector,
+        configure: ((NSButton) -> Void)? = nil
+    ) -> NSView {
+        let baseText = L10n.prefs.audioPref.enableCapture
+        let hintText = L10n.prefs.audioPref.enableCaptureRestartHint
+        let fullText = "\(baseText) \(hintText)"
+
+        let labelView = NSTextField(labelWithString: "")
+        labelView.font = NSFont.systemFont(ofSize: 13)
+        labelView.lineBreakMode = .byWordWrapping
+        labelView.maximumNumberOfLines = 0
+        labelView.usesSingleLineMode = false
+        labelView.cell?.wraps = true
+        labelView.cell?.isScrollable = false
+        labelView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        labelView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let attributed = NSMutableAttributedString(
+            string: fullText,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 13),
+                .foregroundColor: NSColor.labelColor,
+            ]
+        )
+        let hintRange = (fullText as NSString).range(of: hintText)
+        if hintRange.location != NSNotFound {
+            attributed.addAttribute(.foregroundColor, value: NSColor.systemYellow, range: hintRange)
+        }
+        labelView.attributedStringValue = attributed
+
+        let checkbox = NSButton(checkboxWithTitle: "", target: self, action: action)
+        checkbox.state = isOn ? .on : .off
+        checkbox.setContentHuggingPriority(.required, for: .horizontal)
+        checkbox.setContentCompressionResistancePriority(.required, for: .horizontal)
+        configure?(checkbox)
+
+        return LabeledRowView(label: labelView, control: checkbox)
     }
 
     private func createButtonRow(label: String, action: Selector) -> NSView {

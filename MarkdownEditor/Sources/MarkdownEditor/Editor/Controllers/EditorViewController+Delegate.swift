@@ -72,11 +72,6 @@ extension EditorViewController: EditorWebViewActionDelegate {
         }
 
         bridge.search.updateHasSelection()
-
-        // 失去焦点时自动进入预览模式
-        if !isPreviewMode {
-            enterPreviewMode()
-        }
     }
 
     func editorWebView(_ webView: EditorWebView, mouseDownWith event: NSEvent) {

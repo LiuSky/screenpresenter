@@ -14,7 +14,7 @@ extension EditorFindPanel {
     }
 
     func setUp() {
-        frame = CGRect(x: 0, y: 0, width: 0, height: Constants.panelHeight)
+        frame = CGRect(x: 0, y: 0, width: 480, height: Constants.panelHeight)
         alphaValue = 0
         resetMenu()
 

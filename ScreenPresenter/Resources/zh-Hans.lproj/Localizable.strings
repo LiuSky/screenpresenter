@@ -26,7 +26,6 @@
 // MARK: - Alert
 "alert.quit" = "退出";
 "alert.cancel" = "取消";
-"alert.quitConfirmTitle" = "退出 ScreenPresenter？";
 "alert.quitConfirmMessage" = "确定要退出 ScreenPresenter 吗？";
 "alert.quitConfirmImpactMessage" = "退出后将中断当前 %d 个正在进行的投屏会话。";
 "alert.quitConfirmShortcutHint" = "提示：在此确认弹窗显示期间，再按一次 Cmd+Q 可直接退出。";
@@ -64,6 +63,9 @@
 "menu.findNext" = "查找下一个";
 "menu.findPrevious" = "查找上一个";
 "menu.useSelectionForFind" = "用所选内容查找";
+"menu.selectAllOccurrences" = "选择所有相同项";
+"menu.selectNextOccurrence" = "选择下个相同项";
+"menu.jumpToSelection" = "跳到所选内容";
 "menu.format" = "格式";
 "menu.bold" = "粗体";
 "menu.italic" = "斜体";
@@ -157,7 +159,7 @@
 // MARK: - Preferences - Audio
 "prefs.audio.enableCapture" = "启用音频捕获";
 "prefs.audio.volume" = "音量";
-"prefs.audio.restartRequiredNote" = "注意：切换“启用音频捕获”后，需要重启 App 才会生效。";
+"prefs.audio.enableCaptureRestartHint" = "(需要重启本 App 才会生效)";
 "prefs.audio.iosNote" = "音频捕获需要通过 USB 连接 iOS 设备";
 "prefs.audio.androidNote" = "需要 Android 11 或更高版本。";
 "prefs.audio.codec" = "音频编解码器";
@@ -466,6 +468,7 @@
 "menu.markdownStatistics" = "字数统计";
 "menu.markdownFileVersion" = "文件版本…";
 "menu.markdownPreview" = "Markdown 预览";
+"menu.markdownEdit" = "进入编辑模式";
 "markdown.untitled" = "未命名";
 "markdown.noRecentFiles" = "暂无最近文件";
 "markdown.positionCenter" = "居中";

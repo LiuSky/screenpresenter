@@ -32,6 +32,16 @@ final class MainViewController: NSViewController {
         previewContainerView.isMarkdownEditorVisible
     }
 
+    /// 当前 Markdown 标签页是否处于预览模式
+    var isMarkdownPreviewMode: Bool {
+        previewContainerView.isCurrentMarkdownTabPreviewMode
+    }
+
+    /// 是否可以切换 Markdown 预览模式
+    var canToggleMarkdownPreviewMode: Bool {
+        isMarkdownEditorVisible && markdownEditorView != nil
+    }
+
     // MARK: - 设备面板快捷访问
 
     /// iOS 面板（默认在左侧）
@@ -845,6 +855,11 @@ final class MainViewController: NSViewController {
         previewContainerView.zoomOutMarkdownEditor()
     }
 
+    /// 切换当前 Markdown 标签页的预览/编辑模式
+    func toggleMarkdownPreviewMode() {
+        previewContainerView.toggleMarkdownPreviewMode()
+    }
+
     private func markdownContentTypes() -> [UTType] {
         let extensions = ["md", "markdown", "txt"]
         var types = extensions.compactMap { UTType(filenameExtension: $0) }
@@ -859,6 +874,26 @@ final class MainViewController: NSViewController {
     /// 执行文本查找操作
     func performTextFinderAction(_ action: NSTextFinder.Action) {
         previewContainerView.markdownEditorView?.performTextFinderAction(action)
+    }
+
+    /// 打开查找和替换
+    func performFindAndReplace() {
+        previewContainerView.markdownEditorView?.performFindAndReplace()
+    }
+
+    /// 选择所有相同项
+    func selectAllOccurrencesInMarkdownEditor() {
+        previewContainerView.markdownEditorView?.selectAllOccurrences()
+    }
+
+    /// 选择下个相同项
+    func selectNextOccurrenceInMarkdownEditor() {
+        previewContainerView.markdownEditorView?.selectNextOccurrence()
+    }
+
+    /// 跳到所选内容
+    func scrollToSelectionInMarkdownEditor() {
+        previewContainerView.markdownEditorView?.scrollToSelection()
     }
 
     // MARK: - 格式操作

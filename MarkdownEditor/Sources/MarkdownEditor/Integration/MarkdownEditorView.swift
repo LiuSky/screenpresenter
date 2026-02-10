@@ -309,6 +309,18 @@ public final class MarkdownEditorView: NSViewController {
         editorVC.updateTextFinderMode(.replace)
     }
 
+    public func selectAllOccurrences() {
+        editorVC.selectAllOccurrences(nil)
+    }
+
+    public func selectNextOccurrence() {
+        editorVC.selectNextOccurrence(nil)
+    }
+
+    public func scrollToSelection() {
+        editorVC.scrollToSelection(nil)
+    }
+
     public func performTextFinderAction(_ action: NSTextFinder.Action) {
         switch action {
         case .showFindInterface:
@@ -329,6 +341,16 @@ public final class MarkdownEditorView: NSViewController {
     /// 切换预览模式（编辑 ↔ 预览）
     public func togglePreview() {
         editorVC.togglePreviewPanel()
+    }
+
+    /// 进入预览模式
+    public func enterPreviewMode() {
+        editorVC.enterPreviewMode()
+    }
+
+    /// 进入编辑模式
+    public func exitPreviewMode() {
+        editorVC.exitPreviewMode()
     }
 
     // MARK: - 外观

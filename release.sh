@@ -13,8 +13,8 @@
 #   2. 创建 ZIP 包
 #   3. Sparkle Ed25519 签名
 #   4. 更新本地 appcast.xml
-#   5. 更新 Gist 中的 appcast.xml
-#   6. 上传到 GitHub Releases
+#   5. 上传到 GitHub Releases
+#   6. 回填 appcast.xml 下载链接为 Release 公网地址
 #
 # 前置要求:
 #   1. brew install --cask sparkle
@@ -55,17 +55,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
 APP_NAME="ScreenPresenter"
 BUILD_DIR="$PROJECT_DIR/build"
-ARCHIVE_PATH="$BUILD_DIR/$APP_NAME.xcarchive"
-APP_PATH="$BUILD_DIR/$APP_NAME.app"
 ZIP_PATH="$BUILD_DIR/$APP_NAME.zip"
 APPCAST_PATH="$PROJECT_DIR/appcast.xml"
 
 # Sparkle 工具路径
 SPARKLE_BIN="/opt/homebrew/Caskroom/sparkle/2.8.1/bin"
 SIGN_UPDATE="$SPARKLE_BIN/sign_update"
-
-# Gist 配置
-GIST_ID="529546d3936dfdc120e88bdbe21bef55"
 
 # GitHub 仓库（优先从 origin 自动解析）
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
@@ -238,7 +233,7 @@ sed -i '' "s|<title>Version [^<]*</title>|<title>Version $VERSION</title>|g" "$A
 # 更新发布日期
 sed -i '' "s|<pubDate>[^<]*</pubDate>|<pubDate>$PUB_DATE</pubDate>|g" "$APPCAST_PATH"
 
-log_success "本地 appcast.xml 已更新（待获取 Asset ID 后更新下载链接）"
+log_success "本地 appcast.xml 已更新（待创建 Release 后回填下载链接）"
 
 # ============================================
 # 步骤 8: 上传到 GitHub Releases
@@ -247,11 +242,8 @@ log_step "上传到 GitHub Releases..."
 
 # 检查 Release 是否已存在
 if gh release view "$VERSION" --repo "$GITHUB_REPO" &> /dev/null; then
-    log_warning "Release $VERSION 已存在，将删除并重新创建"
-    gh release delete "$VERSION" --repo "$GITHUB_REPO" --yes 2>/dev/null || true
-    # 删除对应的 tag
-    git tag -d "$VERSION" 2>/dev/null || true
-    git push origin ":refs/tags/$VERSION" 2>/dev/null || true
+    log_error "Release $VERSION 已存在，请先手动处理后再重试"
+    exit 1
 fi
 
 # 从 appcast.xml 提取 description 作为 Release Notes
@@ -285,42 +277,30 @@ gh release create "$VERSION" \
 log_success "GitHub Release 创建完成"
 
 # ============================================
-# 步骤 9: 获取 Asset ID 并更新 appcast.xml
+# 步骤 9: 获取下载链接并更新 appcast.xml
 # ============================================
-log_step "获取 Asset ID..."
+log_step "获取 Release 下载链接..."
 
 # 等待一下确保 Release 创建完成
 sleep 2
 
-# 获取 Release Assets 的 ID
-ASSET_ID=$(gh api "/repos/$GITHUB_REPO/releases/tags/$VERSION" --jq '.assets[0].id' 2>/dev/null)
+# 获取 Release 资产信息
+ASSET_ID=$(gh api "/repos/$GITHUB_REPO/releases/tags/$VERSION" --jq '.assets[] | select(.name == "ScreenPresenter.zip") | .id' 2>/dev/null)
+DOWNLOAD_URL=$(gh api "/repos/$GITHUB_REPO/releases/tags/$VERSION" --jq '.assets[] | select(.name == "ScreenPresenter.zip") | .browser_download_url' 2>/dev/null)
 
-if [ -z "$ASSET_ID" ]; then
-    log_error "无法获取 Asset ID"
+if [ -z "$ASSET_ID" ] || [ -z "$DOWNLOAD_URL" ]; then
+    log_error "无法获取 Release 资产信息（ScreenPresenter.zip）"
     exit 1
 fi
 
 log_success "Asset ID: $ASSET_ID"
+log_info "下载链接: $DOWNLOAD_URL"
 
-# 更新 appcast.xml 中的下载链接为 API URL（私有仓库必须使用此格式）
-API_DOWNLOAD_URL="https://api.github.com/repos/$GITHUB_REPO/releases/assets/$ASSET_ID"
-sed -i '' "s|url=\"https://api.github.com/repos/$GITHUB_REPO/releases/assets/[0-9]*\"|url=\"$API_DOWNLOAD_URL\"|g" "$APPCAST_PATH"
-# 兼容旧格式的 browser_download_url
-sed -i '' "s|url=\"https://github.com/$GITHUB_REPO/releases/download/[^\"]*\"|url=\"$API_DOWNLOAD_URL\"|g" "$APPCAST_PATH"
+# 更新 appcast.xml 的 enclosure 下载地址为公开直链
+sed -i '' "s|url=\"https://api.github.com/repos/[^\\\"]*/releases/assets/[0-9]*\"|url=\"$DOWNLOAD_URL\"|g" "$APPCAST_PATH"
+sed -i '' "s|url=\"https://github.com/[^\\\"]*/releases/download/[^\"]*\"|url=\"$DOWNLOAD_URL\"|g" "$APPCAST_PATH"
 
 log_success "appcast.xml 下载链接已更新"
-
-# ============================================
-# 步骤 10: 更新 Gist
-# ============================================
-log_step "更新 Gist 中的 appcast.xml..."
-
-gh gist edit "$GIST_ID" "$APPCAST_PATH" || {
-    log_warning "Gist 更新失败，请手动更新"
-    log_info "Gist URL: https://gist.github.com/sunimp/$GIST_ID"
-}
-
-log_success "Gist 已更新"
 
 # ============================================
 # 完成
@@ -336,7 +316,7 @@ echo "Asset ID: $ASSET_ID"
 echo ""
 echo "链接:"
 echo "  - Release: https://github.com/$GITHUB_REPO/releases/tag/$VERSION"
-echo "  - Gist:    https://gist.github.com/sunimp/$GIST_ID"
+echo "  - Appcast: https://raw.githubusercontent.com/$GITHUB_REPO/main/appcast.xml"
 echo ""
 log_success "用户现在可以通过应用内更新获取新版本！"
 echo ""
