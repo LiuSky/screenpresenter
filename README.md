@@ -54,6 +54,11 @@ ScreenPresenter 是一款 macOS 原生设备投屏工具，支持同时展示 iO
 
 文档编辑器位于主窗口内，适用于投屏过程中的旁路记录、脚本、演示稿编辑。
 
+### 实现来源
+
+- 基于 [MarkEdit](https://github.com/MarkEdit-app/MarkEdit) 与 [MarkEdit-preview](https://github.com/MarkEdit-app/MarkEdit-preview) 实现。
+- 在原项目基础上结合 ScreenPresenter 场景做了精简与调整（嵌入式集成、菜单与快捷键行为、偏好项与会话逻辑等）。
+
 ### 关键行为
 
 - 打开文件时，若当前只有一个空白未改动标签页，会直接复用该标签页。
