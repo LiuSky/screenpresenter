@@ -31,17 +31,17 @@
                 </ul>
                 ]]>
             </description>
-            <pubDate>Mon, 09 Feb 2026 17:21:24 +0800</pubDate>
+            <pubDate>Tue, 10 Feb 2026 14:04:01 +0800</pubDate>
             
-            <sparkle:version>202602091719</sparkle:version>
+            <sparkle:version>202602101401</sparkle:version>
             <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             
             <enclosure 
-                url="https://api.github.com/repos/HapticTide/ScreenPresenter/releases/assets/353007578"
-                length="14922465"
+                url="https://api.github.com/repos/HapticTide/ScreenPresenter/releases/assets/353458277"
+                length="15055959"
                 type="application/octet-stream"
-                sparkle:edSignature="aMIKO4rvz98wtS0484rhnKQ7CoNuDbHbzBvOsMlTUdFTiHxaqjEHw+H2THmF3a8SU7sUevCaRhKqPxI0Y7JaDg=="
+                sparkle:edSignature="8T0AGu9wxW17RKHzTUoKDHV2RFQ+aCmddeRcglpwpFkUyyklesC+Huf/m7EYEbED7VL70UuKiZthY9lwmONmDg=="
             />
         </item>
     </channel>

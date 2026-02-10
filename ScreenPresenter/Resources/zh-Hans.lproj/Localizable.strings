@@ -434,7 +434,7 @@
 "menu.view" = "显示";
 "menu.colorCompensation" = "颜色补偿...";
 "menu.toggleDeviceBezel" = "显示设备边框";
-"menu.togglePreventSleep" = "禁止息屏";
+"menu.togglePreventSleep" = "捕获时禁止息屏";
 
 // MARK: - Markdown Editor
 "menu.markdown" = "文档编辑器";

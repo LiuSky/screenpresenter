@@ -434,7 +434,7 @@
 "menu.view" = "View";
 "menu.colorCompensation" = "Color Compensation...";
 "menu.toggleDeviceBezel" = "Show Device Bezel";
-"menu.togglePreventSleep" = "Prevent Sleep";
+"menu.togglePreventSleep" = "Prevent Sleep When Capturing";
 
 // MARK: - Markdown Editor
 "menu.markdown" = "Document Editor";
